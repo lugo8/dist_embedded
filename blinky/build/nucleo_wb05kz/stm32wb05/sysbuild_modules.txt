@@ -1,0 +1,1 @@
+"mcuboot":"C:/Users/biote/OneDrive/Documents/zephyr/external/bootloader/mcuboot":"C:/Users/biote/OneDrive/Documents/zephyr/external/bootloader/mcuboot/boot/zephyr/sysbuild"

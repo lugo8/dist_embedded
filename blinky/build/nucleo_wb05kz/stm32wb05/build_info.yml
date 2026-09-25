@@ -1,0 +1,59 @@
+cmake:
+  application:
+    configuration-dir: 'C:/Users/biote/OneDrive/Documents/zephyr/blinky'
+    source-dir: 'C:/Users/biote/OneDrive/Documents/zephyr/blinky'
+  board:
+    name: 'nucleo_wb05kz'
+    path:
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr/boards/st/nucleo_wb05kz'
+    qualifiers: 'stm32wb05'
+    revision: ''
+  devicetree:
+    bindings-dirs:
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr/dts/bindings'
+    files:
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr/boards/st/nucleo_wb05kz/nucleo_wb05kz.dts'
+    include-dirs:
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/modules/hal/ambiq/dts'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/modules/hal/atmel/include'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/modules/hal/bouffalolab/include'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/modules/hal/bouffalolab/include/zephyr'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/modules/hal/gigadevice/include'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/modules/hal/microchip/include'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/modules/hal/microchip/dts'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/modules/hal/nuvoton/dts'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/modules/hal/nxp/dts'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/modules/hal/stm32/dts'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/modules/hal/ti/dts'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr/include'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr/include/zephyr'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr/dts/common'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr/dts/vendor'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr/dts/rx'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr/dts/x86'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr/dts/xtensa'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr/dts/sparc'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr/dts/riscv'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr/dts/posix'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr/dts/arm64'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr/dts/arm'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr/dts/arc'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr/dts'
+  kconfig:
+    files:
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr/boards/st/nucleo_wb05kz/nucleo_wb05kz_defconfig'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/blinky/prj.conf'
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/blinky/build/nucleo_wb05kz/stm32wb05/zephyr/misc/generated/extra_kconfig_options.conf'
+    user-files:
+     - 'C:/Users/biote/OneDrive/Documents/zephyr/blinky/prj.conf'
+  toolchain:
+    name: 'zephyr'
+    path: 'C:/Users/biote/.zephyr_ide/toolchains/zephyr-sdk-1.0.1'
+  zephyr:
+    version: '4.4.0'
+    zephyr-base: 'C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr'
+version: '0.1.0'
+west:
+  command: 'c:\Users\biote\OneDrive\Documents\zephyr\.venv\Scripts\west build -b nucleo_wb05kz/stm32wb05 c:/Users/biote/OneDrive/Documents/zephyr/blinky -p --build-dir c:/Users/biote/OneDrive/Documents/zephyr/blinky/build/nucleo_wb05kz/stm32wb05 -- -DCONFIG_DEBUG_OPTIMIZATIONS=y -DCONFIG_DEBUG_THREAD_INFO=y'
+  topdir: 'c:\Users\biote\OneDrive\Documents\zephyr'
+  version: '1.5.0'

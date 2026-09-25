@@ -1,0 +1,749 @@
+{
+    "symbols": {
+        "name": "Root",
+        "size": 4365,
+        "identifier": "root",
+        "loc": [],
+        "children": [
+            {
+                "name": "(no paths)",
+                "size": 0,
+                "identifier": ":",
+                "loc": []
+            },
+            {
+                "name": "lib",
+                "size": 40,
+                "identifier": "lib",
+                "loc": [],
+                "children": [
+                    {
+                        "name": "os",
+                        "size": 4,
+                        "identifier": "lib\\os",
+                        "loc": [],
+                        "children": [
+                            {
+                                "name": "printk.c",
+                                "size": 4,
+                                "identifier": "lib\\os\\printk.c",
+                                "loc": [],
+                                "children": [
+                                    {
+                                        "name": "_char_out",
+                                        "size": 4,
+                                        "identifier": "lib\\os\\printk.c\\_char_out",
+                                        "loc": [
+                                            "ram",
+                                            "rom"
+                                        ],
+                                        "address": 536870960,
+                                        "section": "datas"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "name": "libc",
+                        "size": 32,
+                        "identifier": "lib\\libc",
+                        "loc": [],
+                        "children": [
+                            {
+                                "name": "picolibc",
+                                "size": 20,
+                                "identifier": "lib\\libc\\picolibc",
+                                "loc": [],
+                                "children": [
+                                    {
+                                        "name": "stdio.c",
+                                        "size": 20,
+                                        "identifier": "lib\\libc\\picolibc\\stdio.c",
+                                        "loc": [],
+                                        "children": [
+                                            {
+                                                "name": "_stdout_hook",
+                                                "size": 4,
+                                                "identifier": "lib\\libc\\picolibc\\stdio.c\\_stdout_hook",
+                                                "loc": [
+                                                    "ram"
+                                                ],
+                                                "address": 536871612,
+                                                "section": "bss"
+                                            },
+                                            {
+                                                "name": "__stdout",
+                                                "size": 16,
+                                                "identifier": "lib\\libc\\picolibc\\stdio.c\\__stdout",
+                                                "loc": [
+                                                    "ram",
+                                                    "rom"
+                                                ],
+                                                "address": 536870968,
+                                                "section": "datas"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "name": "common",
+                                "size": 12,
+                                "identifier": "lib\\libc\\common",
+                                "loc": [],
+                                "children": [
+                                    {
+                                        "name": "source",
+                                        "size": 12,
+                                        "identifier": "lib\\libc\\common\\source",
+                                        "loc": [],
+                                        "children": [
+                                            {
+                                                "name": "stdlib",
+                                                "size": 12,
+                                                "identifier": "lib\\libc\\common\\source\\stdlib",
+                                                "loc": [],
+                                                "children": [
+                                                    {
+                                                        "name": "malloc.c",
+                                                        "size": 12,
+                                                        "identifier": "lib\\libc\\common\\source\\stdlib\\malloc.c",
+                                                        "loc": [],
+                                                        "children": [
+                                                            {
+                                                                "name": "z_malloc_heap",
+                                                                "size": 12,
+                                                                "identifier": "lib\\libc\\common\\source\\stdlib\\malloc.c\\z_malloc_heap",
+                                                                "loc": [
+                                                                    "ram"
+                                                                ],
+                                                                "address": 536871616,
+                                                                "section": "bss"
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "name": "utils",
+                        "size": 4,
+                        "identifier": "lib\\utils",
+                        "loc": [],
+                        "children": [
+                            {
+                                "name": "last_section_id.c",
+                                "size": 4,
+                                "identifier": "lib\\utils\\last_section_id.c",
+                                "loc": [],
+                                "children": [
+                                    {
+                                        "name": "last_id",
+                                        "size": 4,
+                                        "identifier": "lib\\utils\\last_section_id.c\\last_id",
+                                        "loc": [
+                                            "ram",
+                                            "rom"
+                                        ],
+                                        "address": 268717144,
+                                        "section": ".last_section"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "soc",
+                "size": 84,
+                "identifier": "soc",
+                "loc": [],
+                "children": [
+                    {
+                        "name": "st",
+                        "size": 84,
+                        "identifier": "soc\\st",
+                        "loc": [],
+                        "children": [
+                            {
+                                "name": "stm32",
+                                "size": 84,
+                                "identifier": "soc\\st\\stm32",
+                                "loc": [],
+                                "children": [
+                                    {
+                                        "name": "common",
+                                        "size": 36,
+                                        "identifier": "soc\\st\\stm32\\common",
+                                        "loc": [],
+                                        "children": [
+                                            {
+                                                "name": "gpioport_mgr.c",
+                                                "size": 36,
+                                                "identifier": "soc\\st\\stm32\\common\\gpioport_mgr.c",
+                                                "loc": [],
+                                                "children": [
+                                                    {
+                                                        "name": "__devstate_dts_ord_23",
+                                                        "size": 2,
+                                                        "identifier": "soc\\st\\stm32\\common\\gpioport_mgr.c\\__devstate_dts_ord_23",
+                                                        "loc": [
+                                                            "ram",
+                                                            "rom"
+                                                        ],
+                                                        "address": 536871008,
+                                                        "section": "device_states"
+                                                    },
+                                                    {
+                                                        "name": "gpio_stm32_data_b",
+                                                        "size": 16,
+                                                        "identifier": "soc\\st\\stm32\\common\\gpioport_mgr.c\\gpio_stm32_data_b",
+                                                        "loc": [
+                                                            "ram"
+                                                        ],
+                                                        "address": 536871576,
+                                                        "section": "bss"
+                                                    },
+                                                    {
+                                                        "name": "__devstate_dts_ord_22",
+                                                        "size": 2,
+                                                        "identifier": "soc\\st\\stm32\\common\\gpioport_mgr.c\\__devstate_dts_ord_22",
+                                                        "loc": [
+                                                            "ram",
+                                                            "rom"
+                                                        ],
+                                                        "address": 536871010,
+                                                        "section": "device_states"
+                                                    },
+                                                    {
+                                                        "name": "gpio_stm32_data_a",
+                                                        "size": 16,
+                                                        "identifier": "soc\\st\\stm32\\common\\gpioport_mgr.c\\gpio_stm32_data_a",
+                                                        "loc": [
+                                                            "ram"
+                                                        ],
+                                                        "address": 536871592,
+                                                        "section": "bss"
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "name": "stm32wb0x",
+                                        "size": 48,
+                                        "identifier": "soc\\st\\stm32\\stm32wb0x",
+                                        "loc": [],
+                                        "children": [
+                                            {
+                                                "name": "soc.c",
+                                                "size": 48,
+                                                "identifier": "soc\\st\\stm32\\stm32wb0x\\soc.c",
+                                                "loc": [],
+                                                "children": [
+                                                    {
+                                                        "name": "SystemCoreClock",
+                                                        "size": 4,
+                                                        "identifier": "soc\\st\\stm32\\stm32wb0x\\soc.c\\SystemCoreClock",
+                                                        "loc": [
+                                                            "ram",
+                                                            "rom"
+                                                        ],
+                                                        "address": 536870964,
+                                                        "section": "datas"
+                                                    },
+                                                    {
+                                                        "name": "RAM_VR",
+                                                        "size": 44,
+                                                        "identifier": "soc\\st\\stm32\\stm32wb0x\\soc.c\\RAM_VR",
+                                                        "loc": [
+                                                            "ram"
+                                                        ],
+                                                        "address": 536870916,
+                                                        "section": "stm32wb0_RAM_VR"
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "drivers",
+                "size": 300,
+                "identifier": "drivers",
+                "loc": [],
+                "children": [
+                    {
+                        "name": "interrupt_controller",
+                        "size": 258,
+                        "identifier": "drivers\\interrupt_controller",
+                        "loc": [],
+                        "children": [
+                            {
+                                "name": "intc_gpio_stm32wb0.c",
+                                "size": 258,
+                                "identifier": "drivers\\interrupt_controller\\intc_gpio_stm32wb0.c",
+                                "loc": [],
+                                "children": [
+                                    {
+                                        "name": "gpio_intc_data",
+                                        "size": 256,
+                                        "identifier": "drivers\\interrupt_controller\\intc_gpio_stm32wb0.c\\gpio_intc_data",
+                                        "loc": [
+                                            "ram"
+                                        ],
+                                        "address": 536871628,
+                                        "section": "bss"
+                                    },
+                                    {
+                                        "name": "__devstate_dts_ord_45",
+                                        "size": 2,
+                                        "identifier": "drivers\\interrupt_controller\\intc_gpio_stm32wb0.c\\__devstate_dts_ord_45",
+                                        "loc": [
+                                            "ram",
+                                            "rom"
+                                        ],
+                                        "address": 536871012,
+                                        "section": "device_states"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "name": "clock_control",
+                        "size": 2,
+                        "identifier": "drivers\\clock_control",
+                        "loc": [],
+                        "children": [
+                            {
+                                "name": "clock_stm32_ll_wb0.c",
+                                "size": 2,
+                                "identifier": "drivers\\clock_control\\clock_stm32_ll_wb0.c",
+                                "loc": [],
+                                "children": [
+                                    {
+                                        "name": "__devstate_dts_ord_21",
+                                        "size": 2,
+                                        "identifier": "drivers\\clock_control\\clock_stm32_ll_wb0.c\\__devstate_dts_ord_21",
+                                        "loc": [
+                                            "ram",
+                                            "rom"
+                                        ],
+                                        "address": 536871014,
+                                        "section": "device_states"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "name": "serial",
+                        "size": 14,
+                        "identifier": "drivers\\serial",
+                        "loc": [],
+                        "children": [
+                            {
+                                "name": "uart_stm32.c",
+                                "size": 14,
+                                "identifier": "drivers\\serial\\uart_stm32.c",
+                                "loc": [],
+                                "children": [
+                                    {
+                                        "name": "__devstate_dts_ord_51",
+                                        "size": 2,
+                                        "identifier": "drivers\\serial\\uart_stm32.c\\__devstate_dts_ord_51",
+                                        "loc": [
+                                            "ram",
+                                            "rom"
+                                        ],
+                                        "address": 536871018,
+                                        "section": "device_states"
+                                    },
+                                    {
+                                        "name": "uart_stm32_data_0",
+                                        "size": 4,
+                                        "identifier": "drivers\\serial\\uart_stm32.c\\uart_stm32_data_0",
+                                        "loc": [
+                                            "ram",
+                                            "rom"
+                                        ],
+                                        "address": 536870984,
+                                        "section": "datas"
+                                    },
+                                    {
+                                        "name": "uart_cfg_0",
+                                        "size": 8,
+                                        "identifier": "drivers\\serial\\uart_stm32.c\\uart_cfg_0",
+                                        "loc": [
+                                            "ram",
+                                            "rom"
+                                        ],
+                                        "address": 536870988,
+                                        "section": "datas"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "name": "timer",
+                        "size": 24,
+                        "identifier": "drivers\\timer",
+                        "loc": [],
+                        "children": [
+                            {
+                                "name": "cortex_m_systick.c",
+                                "size": 24,
+                                "identifier": "drivers\\timer\\cortex_m_systick.c",
+                                "loc": [],
+                                "children": [
+                                    {
+                                        "name": "last_load",
+                                        "size": 4,
+                                        "identifier": "drivers\\timer\\cortex_m_systick.c\\last_load",
+                                        "loc": [
+                                            "ram"
+                                        ],
+                                        "address": 536871888,
+                                        "section": "bss"
+                                    },
+                                    {
+                                        "name": "overflow_cyc",
+                                        "size": 4,
+                                        "identifier": "drivers\\timer\\cortex_m_systick.c\\overflow_cyc",
+                                        "loc": [
+                                            "ram"
+                                        ],
+                                        "address": 536871884,
+                                        "section": "bss"
+                                    },
+                                    {
+                                        "name": "cycle_count",
+                                        "size": 8,
+                                        "identifier": "drivers\\timer\\cortex_m_systick.c\\cycle_count",
+                                        "loc": [
+                                            "ram"
+                                        ],
+                                        "address": 536871032,
+                                        "section": "bss"
+                                    },
+                                    {
+                                        "name": "announced_cycles",
+                                        "size": 8,
+                                        "identifier": "drivers\\timer\\cortex_m_systick.c\\announced_cycles",
+                                        "loc": [
+                                            "ram"
+                                        ],
+                                        "address": 536871024,
+                                        "section": "bss"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "name": "reset",
+                        "size": 2,
+                        "identifier": "drivers\\reset",
+                        "loc": [],
+                        "children": [
+                            {
+                                "name": "reset_stm32.c",
+                                "size": 2,
+                                "identifier": "drivers\\reset\\reset_stm32.c",
+                                "loc": [],
+                                "children": [
+                                    {
+                                        "name": "__devstate_dts_ord_32",
+                                        "size": 2,
+                                        "identifier": "drivers\\reset\\reset_stm32.c\\__devstate_dts_ord_32",
+                                        "loc": [
+                                            "ram",
+                                            "rom"
+                                        ],
+                                        "address": 536871016,
+                                        "section": "device_states"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "kernel",
+                "size": 3930,
+                "identifier": "kernel",
+                "loc": [],
+                "children": [
+                    {
+                        "name": "init.c",
+                        "size": 3705,
+                        "identifier": "kernel\\init.c",
+                        "loc": [],
+                        "children": [
+                            {
+                                "name": "z_idle_stacks",
+                                "size": 256,
+                                "identifier": "kernel\\init.c\\z_idle_stacks",
+                                "loc": [
+                                    "ram"
+                                ],
+                                "address": 536874000,
+                                "section": "noinit"
+                            },
+                            {
+                                "name": "z_main_stack",
+                                "size": 1024,
+                                "identifier": "kernel\\init.c\\z_main_stack",
+                                "loc": [
+                                    "ram"
+                                ],
+                                "address": 536874256,
+                                "section": "noinit"
+                            },
+                            {
+                                "name": "_kernel",
+                                "size": 36,
+                                "identifier": "kernel\\init.c\\_kernel",
+                                "loc": [
+                                    "ram"
+                                ],
+                                "address": 536871892,
+                                "section": "bss"
+                            },
+                            {
+                                "name": "z_main_thread",
+                                "size": 168,
+                                "identifier": "kernel\\init.c\\z_main_thread",
+                                "loc": [
+                                    "ram"
+                                ],
+                                "address": 536871208,
+                                "section": "bss"
+                            },
+                            {
+                                "name": "z_tls_current",
+                                "size": 4,
+                                "identifier": "kernel\\init.c\\z_tls_current",
+                                "loc": [
+                                    "ram"
+                                ],
+                                "address": 0,
+                                "section": "tbss"
+                            },
+                            {
+                                "name": "z_interrupt_stacks",
+                                "size": 2048,
+                                "identifier": "kernel\\init.c\\z_interrupt_stacks",
+                                "loc": [
+                                    "ram"
+                                ],
+                                "address": 536871952,
+                                "section": "noinit"
+                            },
+                            {
+                                "name": "z_idle_threads",
+                                "size": 168,
+                                "identifier": "kernel\\init.c\\z_idle_threads",
+                                "loc": [
+                                    "ram"
+                                ],
+                                "address": 536871040,
+                                "section": "bss"
+                            },
+                            {
+                                "name": "z_sys_post_kernel",
+                                "size": 1,
+                                "identifier": "kernel\\init.c\\z_sys_post_kernel",
+                                "loc": [
+                                    "ram"
+                                ],
+                                "address": 536871944,
+                                "section": "bss"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "timeslicing.c",
+                        "size": 37,
+                        "identifier": "kernel\\timeslicing.c",
+                        "loc": [],
+                        "children": [
+                            {
+                                "name": "slice_ticks",
+                                "size": 4,
+                                "identifier": "kernel\\timeslicing.c\\slice_ticks",
+                                "loc": [
+                                    "ram",
+                                    "rom"
+                                ],
+                                "address": 536870996,
+                                "section": "datas"
+                            },
+                            {
+                                "name": "slice_max_prio",
+                                "size": 4,
+                                "identifier": "kernel\\timeslicing.c\\slice_max_prio",
+                                "loc": [
+                                    "ram"
+                                ],
+                                "address": 536871936,
+                                "section": "bss"
+                            },
+                            {
+                                "name": "slice_timeouts",
+                                "size": 24,
+                                "identifier": "kernel\\timeslicing.c\\slice_timeouts",
+                                "loc": [
+                                    "ram"
+                                ],
+                                "address": 536871544,
+                                "section": "bss"
+                            },
+                            {
+                                "name": "slice_expired",
+                                "size": 1,
+                                "identifier": "kernel\\timeslicing.c\\slice_expired",
+                                "loc": [
+                                    "ram"
+                                ],
+                                "address": 536871932,
+                                "section": "bss"
+                            },
+                            {
+                                "name": "pending_current",
+                                "size": 4,
+                                "identifier": "kernel\\timeslicing.c\\pending_current",
+                                "loc": [
+                                    "ram"
+                                ],
+                                "address": 536871928,
+                                "section": "bss"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "timeout.c",
+                        "size": 20,
+                        "identifier": "kernel\\timeout.c",
+                        "loc": [],
+                        "children": [
+                            {
+                                "name": "timeout_list",
+                                "size": 8,
+                                "identifier": "kernel\\timeout.c\\timeout_list",
+                                "loc": [
+                                    "ram",
+                                    "rom"
+                                ],
+                                "address": 536871000,
+                                "section": "datas"
+                            },
+                            {
+                                "name": "announce_remaining",
+                                "size": 4,
+                                "identifier": "kernel\\timeout.c\\announce_remaining",
+                                "loc": [
+                                    "ram"
+                                ],
+                                "address": 536871940,
+                                "section": "bss"
+                            },
+                            {
+                                "name": "curr_tick",
+                                "size": 8,
+                                "identifier": "kernel\\timeout.c\\curr_tick",
+                                "loc": [
+                                    "ram"
+                                ],
+                                "address": 536871568,
+                                "section": "bss"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "sched.c",
+                        "size": 168,
+                        "identifier": "kernel\\sched.c",
+                        "loc": [],
+                        "children": [
+                            {
+                                "name": "_thread_dummy",
+                                "size": 168,
+                                "identifier": "kernel\\sched.c\\_thread_dummy",
+                                "loc": [
+                                    "ram"
+                                ],
+                                "address": 536871376,
+                                "section": "bss"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "arch",
+                "size": 4,
+                "identifier": "arch",
+                "loc": [],
+                "children": [
+                    {
+                        "name": "arm",
+                        "size": 4,
+                        "identifier": "arch\\arm",
+                        "loc": [],
+                        "children": [
+                            {
+                                "name": "core",
+                                "size": 4,
+                                "identifier": "arch\\arm\\core",
+                                "loc": [],
+                                "children": [
+                                    {
+                                        "name": "tls.c",
+                                        "size": 4,
+                                        "identifier": "arch\\arm\\core\\tls.c",
+                                        "loc": [],
+                                        "children": [
+                                            {
+                                                "name": "z_arm_tls_ptr",
+                                                "size": 4,
+                                                "identifier": "arch\\arm\\core\\tls.c\\z_arm_tls_ptr",
+                                                "loc": [
+                                                    "ram"
+                                                ],
+                                                "address": 536871608,
+                                                "section": "bss"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "(hidden)",
+                "size": 7,
+                "identifier": "(hidden)",
+                "loc": []
+            }
+        ]
+    },
+    "total_size": 4365
+}

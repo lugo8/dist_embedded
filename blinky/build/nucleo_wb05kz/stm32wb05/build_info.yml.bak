@@ -1,0 +1,6 @@
+west:
+  command: c:\Users\biote\OneDrive\Documents\zephyr\.venv\Scripts\west build -b nucleo_wb05kz/stm32wb05
+    c:/Users/biote/OneDrive/Documents/zephyr/blinky -p --build-dir c:/Users/biote/OneDrive/Documents/zephyr/blinky/build/nucleo_wb05kz/stm32wb05
+    -- -DCONFIG_DEBUG_OPTIMIZATIONS=y -DCONFIG_DEBUG_THREAD_INFO=y
+  topdir: c:\Users\biote\OneDrive\Documents\zephyr
+  version: 1.5.0

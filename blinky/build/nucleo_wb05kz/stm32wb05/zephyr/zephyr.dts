@@ -1,0 +1,667 @@
+/dts-v1/;
+
+/* node '/' defined in external\zephyr\dts\common\skeleton.dtsi:9 */
+/ {
+	model = "STMicroelectronics STM32WB05KZ-NUCLEO board"; /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:15 */
+	compatible = "st,stm32wb05kz-nucleo";                  /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:16 */
+	#address-cells = < 0x1 >;                              /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:18 */
+	#size-cells = < 0x1 >;                                 /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:19 */
+
+	/* node '/chosen' defined in external\zephyr\dts\common\skeleton.dtsi:13 */
+	chosen {
+		zephyr,crc = &crc;                /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:25 */
+		zephyr,flash-controller = &flash; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:26 */
+		zephyr,bt-hci = &bt_hci_wb0;      /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:27 */
+		zephyr,entropy = &rng;            /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:28 */
+		zephyr,console = &usart1;         /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:22 */
+		zephyr,shell-uart = &usart1;      /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:23 */
+		zephyr,sram = &sram0;             /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:24 */
+		zephyr,flash = &flash0;           /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:25 */
+		zephyr,bt-c2h-uart = &usart1;     /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:26 */
+	};
+
+	/* node '/aliases' defined in external\zephyr\dts\common\skeleton.dtsi:15 */
+	aliases {
+		rtc = &rtc;                /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:77 */
+		led0 = &blue_led_1;        /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:78 */
+		led1 = &green_led_1;       /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:79 */
+		led2 = &red_led_1;         /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:80 */
+		pwm-led0 = &pwm_red_led_1; /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:81 */
+		sw0 = &user_button_1;      /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:82 */
+		sw1 = &user_button_2;      /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:83 */
+		sw2 = &user_button_3;      /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:84 */
+		watchdog0 = &iwdg;         /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:85 */
+	};
+
+	/* node '/soc' defined in external\zephyr\dts\arm\armv6-m.dtsi:6 */
+	soc {
+		#address-cells = < 0x1 >;     /* in external\zephyr\dts\arm\armv6-m.dtsi:7 */
+		#size-cells = < 0x1 >;        /* in external\zephyr\dts\arm\armv6-m.dtsi:8 */
+		interrupt-parent = < &nvic >; /* in external\zephyr\dts\arm\armv6-m.dtsi:10 */
+		ranges;                       /* in external\zephyr\dts\arm\armv6-m.dtsi:11 */
+		compatible = "st,stm32wb05",
+		             "st,stm32wb0",
+		             "simple-bus";    /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:11 */
+
+		/* node '/soc/interrupt-controller@e000e100' defined in external\zephyr\dts\arm\armv6-m.dtsi:13 */
+		nvic: interrupt-controller@e000e100 {
+			#address-cells = < 0x1 >;            /* in external\zephyr\dts\arm\armv6-m.dtsi:14 */
+			compatible = "arm,v6m-nvic";         /* in external\zephyr\dts\arm\armv6-m.dtsi:15 */
+			reg = < 0xe000e100 0xc00 >;          /* in external\zephyr\dts\arm\armv6-m.dtsi:16 */
+			interrupt-controller;                /* in external\zephyr\dts\arm\armv6-m.dtsi:17 */
+			#interrupt-cells = < 0x2 >;          /* in external\zephyr\dts\arm\armv6-m.dtsi:18 */
+			arm,num-irq-priority-bits = < 0x2 >; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:369 */
+			phandle = < 0x1 >;                   /* in external\zephyr\dts\arm\armv6-m.dtsi:10 */
+		};
+
+		/* node '/soc/timer@e000e010' defined in external\zephyr\dts\arm\armv6-m.dtsi:21 */
+		systick: timer@e000e010 {
+			compatible = "arm,armv6m-systick"; /* in external\zephyr\dts\arm\armv6-m.dtsi:22 */
+			reg = < 0xe000e010 0x10 >;         /* in external\zephyr\dts\arm\armv6-m.dtsi:23 */
+		};
+
+		/* node '/soc/flash-controller@40001000' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:127 */
+		flash: flash-controller@40001000 {
+			compatible = "st,stm32wb0-flash-controller",
+			             "st,stm32-flash-controller";    /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:128 */
+			reg = < 0x40001000 0x400 >;                  /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:129 */
+			interrupts = < 0x0 0x0 >;                    /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:130 */
+			#address-cells = < 0x1 >;                    /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:132 */
+			#size-cells = < 0x1 >;                       /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:133 */
+
+			/* node '/soc/flash-controller@40001000/flash@10001800' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:135 */
+			st_nvm_user_otp: flash@10001800 {
+				compatible = "st,stm32-nvm-otp"; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:136 */
+				reg = < 0x10001800 0x400 >;      /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:137 */
+				status = "disabled";             /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:138 */
+			};
+
+			/* node '/soc/flash-controller@40001000/flash@10001e00' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:142 */
+			flash@10001e00 {
+				compatible = "st,stm32-nvm-otp"; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:143 */
+				reg = < 0x10001e00 0x100 >;      /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:144 */
+
+				/* node '/soc/flash-controller@40001000/flash@10001e00/nvmem-layout' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:146 */
+				nvmem-layout {
+					compatible = "fixed-layout"; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:147 */
+					#address-cells = < 0x1 >;    /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:148 */
+					#size-cells = < 0x1 >;       /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:149 */
+
+					/* node '/soc/flash-controller@40001000/flash@10001e00/nvmem-layout/c30@60' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:151 */
+					ts_c30_otp: c30@60 {
+						reg = < 0x60 0x4 >;          /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:152 */
+						#nvmem-cell-cells = < 0x0 >; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:153 */
+						read-only;                   /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:154 */
+					};
+
+					/* node '/soc/flash-controller@40001000/flash@10001e00/nvmem-layout/tck@5c' defined in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:16 */
+					ts_tck_otp: tck@5c {
+						reg = < 0x5c 0x4 >;          /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:17 */
+						#nvmem-cell-cells = < 0x0 >; /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:18 */
+						read-only;                   /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:19 */
+					};
+				};
+			};
+
+			/* node '/soc/flash-controller@40001000/flash@10040000' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:159 */
+			flash0: flash@10040000 {
+				compatible = "st,stm32-nv-flash",
+				             "soc-nv-flash";      /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:160 */
+				write-block-size = < 0x4 >;       /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:161 */
+				erase-block-size = < 0x800 >;     /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:162 */
+				max-erase-time = < 0x28 >;        /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:164 */
+				reg = < 0x10040000 0x30000 >;     /* in external\zephyr\dts\arm\st\wb0\stm32wb05Xz.dtsi:13 */
+
+				/* node '/soc/flash-controller@40001000/flash@10040000/partitions' defined in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:178 */
+				partitions {
+					compatible = "fixed-partitions"; /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:179 */
+					#address-cells = < 0x1 >;        /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:180 */
+					#size-cells = < 0x1 >;           /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:181 */
+
+					/* node '/soc/flash-controller@40001000/flash@10040000/partitions/partition@2e000' defined in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:184 */
+					storage_partition: partition@2e000 {
+						label = "storage";        /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:185 */
+						reg = < 0x2e000 0x2000 >; /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:186 */
+					};
+				};
+			};
+		};
+
+		/* node '/soc/rcc@48400000' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:168 */
+		rcc: rcc@48400000 {
+			compatible = "st,stm32wb0-rcc";  /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:169 */
+			reg = < 0x48400000 0x400 >;      /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:170 */
+			#clock-cells = < 0x2 >;          /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:171 */
+			clocks = < &pll >;               /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:111 */
+			clock-frequency = < 0x3d09000 >; /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:112 */
+			clksys-prescaler = < 0x1 >;      /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:113 */
+			slow-clock = < &clk_lse >;       /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:114 */
+			phandle = < 0x4 >;               /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:212 */
+
+			/* node '/soc/rcc@48400000/reset-controller' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:173 */
+			rctl: reset-controller {
+				compatible = "st,stm32-rcc-rctl"; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:174 */
+				#reset-cells = < 0x1 >;           /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:175 */
+				phandle = < 0x5 >;                /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:237 */
+			};
+		};
+
+		/* node '/soc/power@48500000' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:179 */
+		pwrc: power@48500000 {
+			compatible = "st,stm32wb0-pwr"; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:180 */
+			reg = < 0x48500000 0x400 >;     /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:181 */
+			smps-mode = "RUN";              /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:90 */
+			smps-bom = < 0x3 >;             /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:91 */
+		};
+
+		/* node '/soc/interrupt-controller@40000000' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:189 */
+		gpio_intc: interrupt-controller@40000000 {
+			compatible = "st,stm32wb0-gpio-intc"; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:190 */
+			interrupt-controller;                 /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:191 */
+			#interrupt-cells = < 0x1 >;           /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:192 */
+			#address-cells = < 0x1 >;             /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:193 */
+			reg = < 0x40000000 0x40 >;            /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:194 */
+			num-lines = < 0x20 >;                 /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:195 */
+			interrupts = < 0xf 0x0 >,
+			             < 0x10 0x0 >;            /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:196 */
+			interrupt-names = "gpioa",
+			                  "gpiob";            /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:197 */
+			line-ranges = < 0x0 0x10 >,
+			              < 0x10 0x10 >;          /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:198 */
+		};
+
+		/* node '/soc/pin-controller@48000000' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:201 */
+		pinctrl: pin-controller@48000000 {
+			compatible = "st,stm32-pinctrl"; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:202 */
+			#address-cells = < 0x1 >;        /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:203 */
+			#size-cells = < 0x1 >;           /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:204 */
+			reg = < 0x48000000 0x200000 >;   /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:205 */
+
+			/* node '/soc/pin-controller@48000000/gpio@48000000' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:207 */
+			gpioa: gpio@48000000 {
+				compatible = "st,stm32-gpio"; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:208 */
+				gpio-controller;              /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:209 */
+				#gpio-cells = < 0x2 >;        /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:210 */
+				reg = < 0x48000000 0x400 >;   /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:211 */
+				clocks = < &rcc 0x50 0x4 >;   /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:212 */
+				phandle = < 0x11 >;           /* in external\zephyr\boards\st\nucleo_wb05kz\arduino_r3_connector.dtsi:20 */
+			};
+
+			/* node '/soc/pin-controller@48000000/gpio@48100000' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:215 */
+			gpiob: gpio@48100000 {
+				compatible = "st,stm32-gpio"; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:216 */
+				gpio-controller;              /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:217 */
+				#gpio-cells = < 0x2 >;        /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:218 */
+				reg = < 0x48100000 0x400 >;   /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:219 */
+				clocks = < &rcc 0x50 0x8 >;   /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:220 */
+				phandle = < 0x10 >;           /* in external\zephyr\boards\st\nucleo_wb05kz\arduino_r3_connector.dtsi:20 */
+			};
+
+			/* node '/soc/pin-controller@48000000/i2c1_scl_pb6' defined in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:135 */
+			i2c1_scl_pb6: i2c1_scl_pb6 {
+				pinmux = < 0x2c0 >; /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:136 */
+				bias-pull-up;       /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:137 */
+				drive-open-drain;   /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:138 */
+				phandle = < 0x8 >;  /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:147 */
+			};
+
+			/* node '/soc/pin-controller@48000000/i2c1_sda_pb7' defined in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:149 */
+			i2c1_sda_pb7: i2c1_sda_pb7 {
+				pinmux = < 0x2e0 >; /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:150 */
+				bias-pull-up;       /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:151 */
+				drive-open-drain;   /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:152 */
+				phandle = < 0x9 >;  /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:147 */
+			};
+
+			/* node '/soc/pin-controller@48000000/spi3_miso_pa8' defined in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:216 */
+			spi3_miso_pa8: spi3_miso_pa8 {
+				pinmux = < 0x103 >;            /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:217 */
+				bias-pull-down;                /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:218 */
+				slew-rate = "very-high-speed"; /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:219 */
+				phandle = < 0xc >;             /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:153 */
+			};
+
+			/* node '/soc/pin-controller@48000000/spi3_mosi_pa11' defined in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:224 */
+			spi3_mosi_pa11: spi3_mosi_pa11 {
+				pinmux = < 0x163 >;            /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:225 */
+				bias-pull-down;                /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:226 */
+				slew-rate = "very-high-speed"; /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:227 */
+				phandle = < 0xd >;             /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:153 */
+			};
+
+			/* node '/soc/pin-controller@48000000/spi3_nss_pa9' defined in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:232 */
+			spi3_nss_pa9: spi3_nss_pa9 {
+				pinmux = < 0x123 >;            /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:233 */
+				bias-pull-up;                  /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:234 */
+				slew-rate = "very-high-speed"; /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:235 */
+				phandle = < 0xa >;             /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:153 */
+			};
+
+			/* node '/soc/pin-controller@48000000/spi3_sck_pb3' defined in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:246 */
+			spi3_sck_pb3: spi3_sck_pb3 {
+				pinmux = < 0x264 >;            /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:247 */
+				bias-pull-down;                /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:248 */
+				slew-rate = "very-high-speed"; /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:249 */
+				phandle = < 0xb >;             /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:153 */
+			};
+
+			/* node '/soc/pin-controller@48000000/tim2_ch3_pb2' defined in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:278 */
+			tim2_ch3_pb2: tim2_ch3_pb2 {
+				pinmux = < 0x243 >; /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:279 */
+				phandle = < 0xe >;  /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:167 */
+			};
+
+			/* node '/soc/pin-controller@48000000/usart1_rx_pb0' defined in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:413 */
+			usart1_rx_pb0: usart1_rx_pb0 {
+				pinmux = < 0x200 >; /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:414 */
+				phandle = < 0x7 >;  /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:140 */
+			};
+
+			/* node '/soc/pin-controller@48000000/usart1_tx_pa1' defined in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:431 */
+			usart1_tx_pa1: usart1_tx_pa1 {
+				pinmux = < 0x22 >; /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:432 */
+				bias-pull-up;      /* in external\modules\hal\stm32\dts\st\wb0\stm32wb05kzvx-pinctrl.dtsi:433 */
+				phandle = < 0x6 >; /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:140 */
+			};
+		};
+
+		/* node '/soc/rtc@40004000' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:224 */
+		rtc: rtc@40004000 {
+			compatible = "st,stm32-rtc";   /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:225 */
+			reg = < 0x40004000 0x400 >;    /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:226 */
+			interrupts = < 0xb 0x0 >;      /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:227 */
+			clocks = < &rcc 0x54 0x1000 >,
+			         < &rcc 0x2 0xff >;    /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:122 */
+			status = "okay";               /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:124 */
+		};
+
+		/* node '/soc/serial@41004000' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:232 */
+		usart1: arduino_serial: serial@41004000 {
+			compatible = "st,stm32-usart",
+			             "st,stm32-uart";                  /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:233 */
+			reg = < 0x41004000 0x400 >;                    /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:234 */
+			clocks = < &rcc 0x58 0x400 >;                  /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:236 */
+			resets = < &rctl 0x70a >;                      /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:237 */
+			interrupts = < 0x8 0x0 >;                      /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:238 */
+			pinctrl-0 = < &usart1_tx_pa1 &usart1_rx_pb0 >; /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:140 */
+			pinctrl-names = "default";                     /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:141 */
+			current-speed = < 0x1c200 >;                   /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:142 */
+			status = "okay";                               /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:143 */
+		};
+
+		/* node '/soc/serial@41005000' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:242 */
+		lpuart1: serial@41005000 {
+			compatible = "st,stm32-lpuart",
+			             "st,stm32-uart";   /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:243 */
+			reg = < 0x41005000 0x400 >;     /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:244 */
+			clocks = < &rcc 0x58 0x100 >;   /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:245 */
+			resets = < &rctl 0x708 >;       /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:246 */
+			interrupts = < 0x9 0x0 >;       /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:247 */
+			status = "disabled";            /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:248 */
+		};
+
+		/* node '/soc/i2c@41000000' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:251 */
+		i2c1: arduino_i2c: i2c@41000000 {
+			compatible = "st,stm32-i2c-v2";              /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:252 */
+			clock-frequency = < 0x186a0 >;               /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:253 */
+			#address-cells = < 0x1 >;                    /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:254 */
+			#size-cells = < 0x0 >;                       /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:255 */
+			reg = < 0x41000000 0x400 >;                  /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:256 */
+			clocks = < &rcc 0x58 0x200000 >;             /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:257 */
+			interrupts = < 0x3 0x0 >;                    /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:258 */
+			interrupt-names = "combined";                /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:259 */
+			pinctrl-0 = < &i2c1_scl_pb6 &i2c1_sda_pb7 >; /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:147 */
+			pinctrl-names = "default";                   /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:148 */
+			status = "okay";                             /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:149 */
+		};
+
+		/* node '/soc/spi@41007000' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:263 */
+		spi3: arduino_spi: spi@41007000 {
+			compatible = "st,stm32-spi-fifo",
+			             "st,stm32-spi";                                                /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:264 */
+			#address-cells = < 0x1 >;                                                   /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:265 */
+			#size-cells = < 0x0 >;                                                      /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:266 */
+			reg = < 0x41007000 0x400 >;                                                 /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:267 */
+			interrupts = < 0x7 0x0 >;                                                   /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:269 */
+			st,spi-data-width = "full-4-to-16-bit";                                     /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:270 */
+			pinctrl-0 = < &spi3_nss_pa9 &spi3_sck_pb3 &spi3_miso_pa8 &spi3_mosi_pa11 >; /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:153 */
+			pinctrl-names = "default";                                                  /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:154 */
+			status = "okay";                                                            /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:155 */
+			clocks = < &rcc 0x58 0x4000 >,
+			         < &rcc 0x1 0x3360008 >;                                            /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:157 */
+		};
+
+		/* node '/soc/adc@41006000' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:274 */
+		adc1: adc@41006000 {
+			compatible = "st,stm32wb0-adc"; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:275 */
+			reg = < 0x41006000 0x100 >;     /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:276 */
+			clocks = < &rcc 0x58 0x10 >,
+			         < &rcc 0x58 0x20 >;    /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:283 */
+			interrupts = < 0xc 0x0 >;       /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:285 */
+			#io-channel-cells = < 0x1 >;    /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:286 */
+			status = "disabled";            /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:287 */
+		};
+
+		/* node '/soc/dma@48700000' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:290 */
+		dma1: dma@48700000 {
+			compatible = "st,stm32-dma-v2bis";                                                        /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:291 */
+			#dma-cells = < 0x2 >;                                                                     /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:292 */
+			reg = < 0x48700000 0x100 >;                                                               /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:293 */
+			clocks = < &rcc 0x50 0x1 >;                                                               /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:294 */
+			interrupts = < 0x11 0x0 0x11 0x0 0x11 0x0 0x11 0x0 0x11 0x0 0x11 0x0 0x11 0x0 0x11 0x0 >; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:295 */
+			dma-requests = < 0x8 >;                                                                   /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:296 */
+			dma-offset = < 0x0 >;                                                                     /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:297 */
+			status = "disabled";                                                                      /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:298 */
+		};
+
+		/* node '/soc/dmamux@48800000' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:301 */
+		dmamux1: dmamux@48800000 {
+			compatible = "st,stm32-dmamux"; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:302 */
+			reg = < 0x48800000 0x400 >;     /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:303 */
+			clocks = < &rcc 0x50 0x1 >;     /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:307 */
+			#dma-cells = < 0x3 >;           /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:308 */
+			dma-channels = < 0x8 >;         /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:309 */
+			dma-generators = < 0x1 >;       /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:310 */
+			dma-requests = < 0x19 >;        /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:311 */
+			status = "disabled";            /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:312 */
+		};
+
+		/* node '/soc/rng@48600000' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:323 */
+		rng: rng@48600000 {
+			compatible = "st,stm32-rng-noirq"; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:324 */
+			reg = < 0x48600000 0x1000 >;       /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:325 */
+			clocks = < &rcc 0x50 0x40000 >;    /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:326 */
+			generation-delay-ns = < 0x4e2 >;   /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:327 */
+			status = "okay";                   /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:174 */
+		};
+
+		/* node '/soc/watchdog@40003000' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:331 */
+		iwdg: watchdog@40003000 {
+			compatible = "st,stm32-watchdog"; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:332 */
+			reg = < 0x40003000 0x400 >;       /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:333 */
+			clocks = < &rcc 0x54 0x4000 >;    /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:334 */
+			status = "okay";                  /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:128 */
+		};
+
+		/* node '/soc/crc@48200000' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:338 */
+		crc: crc@48200000 {
+			compatible = "st,stm32-crc";   /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:339 */
+			reg = < 0x48200000 0x400 >;    /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:340 */
+			clocks = < &rcc 0x50 0x1000 >; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:341 */
+			resets = < &rctl 0x60c >;      /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:342 */
+			status = "disabled";           /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:343 */
+		};
+
+		/* node '/soc/timers@40002000' defined in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:25 */
+		timers2: timers@40002000 {
+			compatible = "st,stm32-timers"; /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:26 */
+			reg = < 0x40002000 0x400 >;     /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:27 */
+			clocks = < &rcc 0x54 0x1 >,
+			         < &rcc 0x1 0xff >;     /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:28 */
+			resets = < &rctl 0x680 >;       /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:30 */
+			interrupts = < 0xa 0x0 >;       /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:31 */
+			interrupt-names = "global";     /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:32 */
+			status = "okay";                /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:162 */
+			st,prescaler = < 0x2710 >;      /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:163 */
+
+			/* node '/soc/timers@40002000/pwm' defined in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:36 */
+			pwm2: pwm {
+				compatible = "st,stm32-pwm";   /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:37 */
+				#pwm-cells = < 0x3 >;          /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:39 */
+				pinctrl-0 = < &tim2_ch3_pb2 >; /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:167 */
+				pinctrl-names = "default";     /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:168 */
+				status = "okay";               /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:169 */
+				phandle = < 0x12 >;            /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:50 */
+			};
+
+			/* node '/soc/timers@40002000/counter' defined in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:42 */
+			counter {
+				compatible = "st,stm32-counter"; /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:43 */
+				status = "disabled";             /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:44 */
+			};
+		};
+
+		/* node '/soc/timers@40005000' defined in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:48 */
+		timers16: timers@40005000 {
+			compatible = "st,stm32-timers"; /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:49 */
+			reg = < 0x40005000 0x400 >;     /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:50 */
+			clocks = < &rcc 0x54 0x2 >,
+			         < &rcc 0x1 0xff >;     /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:51 */
+			resets = < &rctl 0x681 >;       /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:53 */
+			interrupts = < 0x1a 0x0 >;      /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:54 */
+			interrupt-names = "global";     /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:55 */
+			st,prescaler = < 0x0 >;         /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:56 */
+			status = "disabled";            /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:57 */
+
+			/* node '/soc/timers@40005000/pwm' defined in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:59 */
+			pwm {
+				compatible = "st,stm32-pwm"; /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:60 */
+				status = "disabled";         /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:61 */
+				#pwm-cells = < 0x3 >;        /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:62 */
+			};
+
+			/* node '/soc/timers@40005000/counter' defined in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:65 */
+			counter {
+				compatible = "st,stm32-counter"; /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:66 */
+				status = "disabled";             /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:67 */
+			};
+		};
+
+		/* node '/soc/timers@40006000' defined in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:71 */
+		timers17: timers@40006000 {
+			compatible = "st,stm32-timers"; /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:72 */
+			reg = < 0x40006000 0x400 >;     /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:73 */
+			clocks = < &rcc 0x54 0x4 >,
+			         < &rcc 0x1 0xff >;     /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:74 */
+			resets = < &rctl 0x682 >;       /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:76 */
+			interrupts = < 0x1b 0x0 >;      /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:77 */
+			interrupt-names = "global";     /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:78 */
+			st,prescaler = < 0x0 >;         /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:79 */
+			status = "disabled";            /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:80 */
+
+			/* node '/soc/timers@40006000/pwm' defined in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:82 */
+			pwm {
+				compatible = "st,stm32-pwm"; /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:83 */
+				status = "disabled";         /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:84 */
+				#pwm-cells = < 0x3 >;        /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:85 */
+			};
+
+			/* node '/soc/timers@40006000/counter' defined in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:88 */
+			counter {
+				compatible = "st,stm32-counter"; /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:89 */
+				status = "disabled";             /* in external\zephyr\dts\arm\st\wb0\stm32wb05.dtsi:90 */
+			};
+		};
+	};
+
+	/* node '/cpus' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:31 */
+	cpus {
+		#address-cells = < 0x1 >; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:32 */
+		#size-cells = < 0x0 >;    /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:33 */
+
+		/* node '/cpus/cpu@0' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:35 */
+		cpu0: cpu@0 {
+			device_type = "cpu";              /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:36 */
+			compatible = "arm,cortex-m0+";    /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:37 */
+			cpu-power-states = < &deepstop >; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:38 */
+			reg = < 0x0 >;                    /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:39 */
+		};
+
+		/* node '/cpus/power-states' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:42 */
+		power-states {
+
+			/* node '/cpus/power-states/state0' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:43 */
+			deepstop: state0 {
+				compatible = "zephyr,power-state";   /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:44 */
+				power-state-name = "suspend-to-ram"; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:45 */
+				substate-id = < 0x0 >;               /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:46 */
+				min-residency-us = < 0x3e8 >;        /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:49 */
+				phandle = < 0xf >;                   /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:38 */
+			};
+		};
+	};
+
+	/* node '/memory@20000000' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:58 */
+	sram0: memory@20000000 {
+		compatible = "zephyr,memory-region",
+		             "mmio-sram";            /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:59 */
+		zephyr,memory-region = "SRAM0";      /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:60 */
+		reg = < 0x20000000 0x6000 >;         /* in external\zephyr\dts\arm\st\wb0\stm32wb05Xz.dtsi:19 */
+	};
+
+	/* node '/clocks' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:63 */
+	clocks {
+
+		/* node '/clocks/clk-hse' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:68 */
+		clk_hse: clk-hse {
+			#clock-cells = < 0x0 >;          /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:69 */
+			compatible = "fixed-clock";      /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:70 */
+			clock-frequency = < 0x1e84800 >; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:71 */
+			status = "okay";                 /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:99 */
+		};
+
+		/* node '/clocks/clk-hsi' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:75 */
+		clk_hsi: clk-hsi {
+			#clock-cells = < 0x0 >;          /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:76 */
+			compatible = "fixed-clock";      /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:77 */
+			clock-frequency = < 0x3d09000 >; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:78 */
+			status = "okay";                 /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:103 */
+		};
+
+		/* node '/clocks/pll64m' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:85 */
+		pll: pll64m {
+			#clock-cells = < 0x0 >;          /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:86 */
+			compatible = "fixed-clock";      /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:87 */
+			clock-frequency = < 0x3d09000 >; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:88 */
+			status = "okay";                 /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:107 */
+			phandle = < 0x2 >;               /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:111 */
+		};
+
+		/* node '/clocks/clk-lse' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:96 */
+		clk_lse: clk-lse {
+			#clock-cells = < 0x0 >;            /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:97 */
+			compatible = "st,stm32-lse-clock"; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:98 */
+			clock-frequency = < 0x8000 >;      /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:99 */
+			driving-capability = < 0x1 >;      /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:100 */
+			status = "okay";                   /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:95 */
+			phandle = < 0x3 >;                 /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:114 */
+		};
+
+		/* node '/clocks/clk-lsi' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:104 */
+		clk_lsi: clk-lsi {
+			#clock-cells = < 0x0 >;               /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:108 */
+			compatible = "st,stm32wb0-lsi-clock",
+			             "fixed-clock";           /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:109 */
+			clock-frequency = < 0x7d00 >;         /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:110 */
+			status = "disabled";                  /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:111 */
+		};
+
+		/* node '/clocks/clk-16mhz-div512' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:118 */
+		clk_16mhz_div512: clk-16mhz-div512 {
+			#clock-cells = < 0x0 >;       /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:119 */
+			compatible = "fixed-clock";   /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:120 */
+			clock-frequency = < 0x7a12 >; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:121 */
+			status = "disabled";          /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:122 */
+		};
+	};
+
+	/* node '/bt_hci_wb0' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:347 */
+	bt_hci_wb0: bt_hci_wb0 {
+		compatible = "st,hci-stm32wb0";     /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:348 */
+		interrupt-parent = < &nvic >;       /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:349 */
+		interrupts = < 0x12 0x0 >,
+		             < 0x16 0x0 >,
+		             < 0x19 0x0 >;          /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:350 */
+		interrupt-names = "radio-txrx",
+		                  "radio-rrm",
+		                  "radio-txrx-seq"; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:351 */
+		status = "okay";                    /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:132 */
+	};
+
+	/* node '/radio_timer' defined in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:355 */
+	radio_timer: radio_timer {
+		compatible = "st,stm32wb0-radio-timer";    /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:356 */
+		interrupt-parent = < &nvic >;              /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:357 */
+		interrupts = < 0x14 0x0 >,
+		             < 0x17 0x0 >,
+		             < 0x18 0x0 >;                 /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:358 */
+		interrupt-names = "radio-timer-error",
+		                  "radio-timer-cpu-wkup",
+		                  "radio-timer-txrx-wkup"; /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:359 */
+		compensated-timer-freq = < 0x64000 >;      /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:362 */
+		max-hs-startup-time = < 0x140 >;           /* in external\zephyr\dts\arm\st\wb0\stm32wb0.dtsi:363 */
+		status = "okay";                           /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:136 */
+	};
+
+	/* node '/connector' defined in external\zephyr\boards\st\nucleo_wb05kz\arduino_r3_connector.dtsi:10 */
+	arduino_header: connector {
+		compatible = "arduino-header-r3";          /* in external\zephyr\boards\st\nucleo_wb05kz\arduino_r3_connector.dtsi:11 */
+		#gpio-cells = < 0x2 >;                     /* in external\zephyr\boards\st\nucleo_wb05kz\arduino_r3_connector.dtsi:12 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in external\zephyr\boards\st\nucleo_wb05kz\arduino_r3_connector.dtsi:13 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in external\zephyr\boards\st\nucleo_wb05kz\arduino_r3_connector.dtsi:14 */
+		gpio-map = < 0xe 0x0 &gpiob 0xf 0x0 >,
+		           < 0x10 0x0 &gpioa 0x9 0x0 >,
+		           < 0x11 0x0 &gpioa 0xb 0x0 >,
+		           < 0x12 0x0 &gpioa 0x8 0x0 >,
+		           < 0x13 0x0 &gpiob 0x3 0x0 >,
+		           < 0x14 0x0 &gpiob 0x7 0x0 >,
+		           < 0x15 0x0 &gpiob 0x6 0x0 >;    /* in external\zephyr\boards\st\nucleo_wb05kz\arduino_r3_connector.dtsi:20 */
+	};
+
+	/* node '/leds' defined in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:29 */
+	leds: leds {
+		compatible = "gpio-leds"; /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:30 */
+
+		/* node '/leds/led_0' defined in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:32 */
+		blue_led_1: led_0 {
+			gpios = < &gpiob 0x1 0x11 >; /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:33 */
+		};
+
+		/* node '/leds/led_1' defined in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:36 */
+		green_led_1: led_1 {
+			gpios = < &gpiob 0x4 0x11 >; /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:37 */
+		};
+
+		/* node '/leds/led_2' defined in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:40 */
+		red_led_1: led_2 {
+			gpios = < &gpiob 0x2 0x11 >; /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:41 */
+		};
+	};
+
+	/* node '/pwmleds' defined in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:45 */
+	pwmleds: pwmleds {
+		compatible = "pwm-leds"; /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:46 */
+		status = "okay";         /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:47 */
+
+		/* node '/pwmleds/pwm_led_1' defined in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:49 */
+		pwm_red_led_1: pwm_led_1 {
+			pwms = < &pwm2 0x3 0x1312d00 0x0 >; /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:50 */
+		};
+	};
+
+	/* node '/gpio_keys' defined in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:54 */
+	gpio_keys {
+		compatible = "gpio-keys"; /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:55 */
+
+		/* node '/gpio_keys/button_0' defined in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:57 */
+		user_button_1: button_0 {
+			label = "SW1";               /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:58 */
+			gpios = < &gpioa 0x0 0x11 >; /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:59 */
+			zephyr,code = < 0xb >;       /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:60 */
+		};
+
+		/* node '/gpio_keys/button_1' defined in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:63 */
+		user_button_2: button_1 {
+			label = "SW2";               /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:64 */
+			gpios = < &gpiob 0x5 0x11 >; /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:65 */
+			zephyr,code = < 0x2 >;       /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:66 */
+		};
+
+		/* node '/gpio_keys/button_2' defined in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:69 */
+		user_button_3: button_2 {
+			label = "SW3";               /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:70 */
+			gpios = < &gpiob 0xe 0x11 >; /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:71 */
+			zephyr,code = < 0x3 >;       /* in external\zephyr\boards\st\nucleo_wb05kz\nucleo_wb05kz.dts:72 */
+		};
+	};
+};

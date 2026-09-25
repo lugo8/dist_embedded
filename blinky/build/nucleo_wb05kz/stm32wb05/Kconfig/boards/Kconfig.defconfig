@@ -1,0 +1,2 @@
+# Load Zephyr board defconfig descriptions.
+osource "C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr/boards/st/nucleo_wb05kz/Kconfig.defconfig"

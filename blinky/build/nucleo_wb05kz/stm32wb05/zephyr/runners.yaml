@@ -1,0 +1,39 @@
+# Available runners configured by board.cmake.
+runners:
+- stm32cubeprogrammer
+- openocd
+- pyocd
+
+# Default flash runner if --runner is not given.
+flash-runner: stm32cubeprogrammer
+
+# Default debug runner if --runner is not given.
+debug-runner: openocd
+
+# Common runner configuration values.
+config:
+  board_dir: C:/Users/biote/OneDrive/Documents/zephyr/external/zephyr/boards/st/nucleo_wb05kz
+  # Build outputs:
+  elf_file: zephyr.elf
+  hex_file: zephyr.hex
+  bin_file: zephyr.bin
+  # Host tools:
+  gdb: C:/Users/biote/.zephyr_ide/toolchains/zephyr-sdk-1.0.1/gnu/arm-zephyr-eabi/bin/arm-zephyr-eabi-gdb-py.exe
+  openocd: C:/Users/biote/.zephyr_ide/toolchains/zephyr-sdk-1.0.1/hosttools/openocd/bin/openocd.exe
+  openocd_search:
+    - C:/Users/biote/.zephyr_ide/toolchains/zephyr-sdk-1.0.1/hosttools/openocd/share/openocd/scripts
+
+# Runner specific arguments
+args:
+  stm32cubeprogrammer:
+    - --port=swd
+    - --reset-mode=sw
+    - --start-address=0x10000000
+  openocd:
+    - --cmd-load
+    - flash write_image erase
+    - --cmd-verify
+    - verify_image
+  pyocd:
+    - --dt-flash=y
+    - --target=stm32wb05kzvx
