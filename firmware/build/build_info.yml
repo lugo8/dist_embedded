@@ -1,0 +1,63 @@
+cmake:
+  application:
+    configuration-dir: 'C:/Users/xhriz/Desktop/18649-distributed-embedded-systems/lab2/firmware'
+    source-dir: 'C:/Users/xhriz/Desktop/18649-distributed-embedded-systems/lab2/firmware'
+  board:
+    name: 'nucleo_f401re'
+    path:
+     - 'C:/Users/xhriz/zephyrproject/zephyr/boards/st/nucleo_f401re'
+    qualifiers: 'stm32f401xe'
+    revision: ''
+  devicetree:
+    bindings-dirs:
+     - 'C:/Users/xhriz/zephyrproject/zephyr/dts/bindings'
+    files:
+     - 'C:/Users/xhriz/zephyrproject/zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts'
+     - 'C:/Users/xhriz/Desktop/18649-distributed-embedded-systems/lab2/firmware/app.overlay'
+    include-dirs:
+     - 'C:/Users/xhriz/zephyrproject/modules/hal/ambiq/dts'
+     - 'C:/Users/xhriz/zephyrproject/modules/hal/atmel/include'
+     - 'C:/Users/xhriz/zephyrproject/modules/hal/bouffalolab/include'
+     - 'C:/Users/xhriz/zephyrproject/modules/hal/bouffalolab/include/zephyr'
+     - 'C:/Users/xhriz/zephyrproject/modules/hal/gigadevice/include'
+     - 'C:/Users/xhriz/zephyrproject/modules/hal/infineon/dts'
+     - 'C:/Users/xhriz/zephyrproject/modules/hal/microchip/include'
+     - 'C:/Users/xhriz/zephyrproject/modules/hal/microchip/dts'
+     - 'C:/Users/xhriz/zephyrproject/modules/hal/nuvoton/dts'
+     - 'C:/Users/xhriz/zephyrproject/modules/hal/nxp/dts'
+     - 'C:/Users/xhriz/zephyrproject/modules/hal/stm32/dts'
+     - 'C:/Users/xhriz/zephyrproject/modules/hal/ti/dts'
+     - 'C:/Users/xhriz/zephyrproject/zephyr/include'
+     - 'C:/Users/xhriz/zephyrproject/zephyr/include/zephyr'
+     - 'C:/Users/xhriz/zephyrproject/zephyr/dts/common'
+     - 'C:/Users/xhriz/zephyrproject/zephyr/dts/vendor'
+     - 'C:/Users/xhriz/zephyrproject/zephyr/dts/tricore'
+     - 'C:/Users/xhriz/zephyrproject/zephyr/dts/rx'
+     - 'C:/Users/xhriz/zephyrproject/zephyr/dts/x86'
+     - 'C:/Users/xhriz/zephyrproject/zephyr/dts/xtensa'
+     - 'C:/Users/xhriz/zephyrproject/zephyr/dts/sparc'
+     - 'C:/Users/xhriz/zephyrproject/zephyr/dts/riscv'
+     - 'C:/Users/xhriz/zephyrproject/zephyr/dts/posix'
+     - 'C:/Users/xhriz/zephyrproject/zephyr/dts/arm64'
+     - 'C:/Users/xhriz/zephyrproject/zephyr/dts/arm'
+     - 'C:/Users/xhriz/zephyrproject/zephyr/dts/arc'
+     - 'C:/Users/xhriz/zephyrproject/zephyr/dts'
+    user-files:
+     - 'C:/Users/xhriz/Desktop/18649-distributed-embedded-systems/lab2/firmware/app.overlay'
+  kconfig:
+    files:
+     - 'C:/Users/xhriz/zephyrproject/zephyr/boards/st/nucleo_f401re/nucleo_f401re_defconfig'
+     - 'C:/Users/xhriz/Desktop/18649-distributed-embedded-systems/lab2/firmware/prj.conf'
+    user-files:
+     - 'C:/Users/xhriz/Desktop/18649-distributed-embedded-systems/lab2/firmware/prj.conf'
+  toolchain:
+    name: 'zephyr'
+    path: 'C:/Users/xhriz/zephyr-sdk-1.0.1'
+  zephyr:
+    version: '4.4.99'
+    zephyr-base: 'C:/Users/xhriz/zephyrproject/zephyr'
+version: '0.1.0'
+west:
+  command: 'C:\Users\xhriz\zephyrproject\.venv\Scripts\west build -p always -b nucleo_f401re C:\Users\xhriz\Desktop\18649-distributed-embedded-systems\lab2\firmware -d C:\Users\xhriz\Desktop\18649-distributed-embedded-systems\lab2\firmware\build'
+  topdir: 'C:\Users\xhriz\zephyrproject'
+  version: '1.5.0'

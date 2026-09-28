@@ -1,0 +1,132 @@
+/ {
+	blinkers {
+		compatible = "gpio-leds";
+		fl: fl { gpios = <&gpiob 10 GPIO_ACTIVE_HIGH>; };  /* D6 */
+		fr: fr { gpios = <&gpiob 6 GPIO_ACTIVE_HIGH>; };   /* D10 */
+		rl: rl { gpios = <&gpioc 0 GPIO_ACTIVE_HIGH>; };   /* A5 */
+		rr: rr { gpios = <&gpiob 3 GPIO_ACTIVE_HIGH>; };   /* D3 */
+	};
+};
+
+/* the board file enables these on pins we use for other things */
+&spi1 { status = "disabled"; };   /* PA5-7 + cs on PB6 */
+&i2c1 { status = "disabled"; };   /* PB8/PB9, needed for motor pwm */
+&i2c3 { status = "disabled"; };   /* PA8, needed for servo */
+&pwm2 { status = "disabled"; };   /* tim2 is the left encoder now */
+
+/* move usart1 off PB6/PB7 to D8/D2 for the pi link */
+&usart1 {
+	pinctrl-0 = <&usart1_tx_pa9 &usart1_rx_pa10>;
+};
+
+/* board puts adc1 on PA0, which is now an encoder pin. these are the
+ * three current sensor pins: A2, A3, A4 */
+&adc1 {
+	pinctrl-0 = <&adc1_in4_pa4 &adc1_in8_pb0 &adc1_in11_pc1>;
+};
+
+/* left encoder: A0/A1 */
+&timers2 {
+	status = "okay";
+
+	enc_left: qdec {
+		pinctrl-0 = <&tim2_ch1_pa0 &tim2_ch2_pa1>;
+		pinctrl-names = "default";
+		st,encoder-mode = <0x3>;           /* count every edge on both phases */
+		st,input-filter-level = <10>;      /* ignore short glitches from motor noise */
+		st,counts-per-revolution = <1>;    /* required, but we only read raw counts */
+		status = "okay";
+	};
+};
+
+/* right encoder: D12/D11 */
+&timers3 {
+	status = "okay";
+
+	enc_right: qdec {
+		pinctrl-0 = <&tim3_ch1_pa6 &tim3_ch2_pa7>;
+		pinctrl-names = "default";
+		st,encoder-mode = <0x3>;
+		st,input-filter-level = <10>;
+		st,counts-per-revolution = <1>;
+		status = "okay";
+	};
+};
+
+/* in case the encoder outputs are open-collector */
+&tim2_ch1_pa0 { bias-pull-up; };
+&tim2_ch2_pa1 { bias-pull-up; };
+&tim3_ch1_pa6 { bias-pull-up; };
+&tim3_ch2_pa7 { bias-pull-up; };
+
+/* servo on D7. prescaler makes the timer count at 1 MHz so a 20 ms period fits in its 16-bit counter */
+&timers1 {
+	status = "okay";
+	st,prescaler = <83>;
+
+	servo_pwm: pwm {
+		pinctrl-0 = <&tim1_ch1_pa8>;
+		pinctrl-names = "default";
+		status = "okay";
+	};
+};
+
+/ {
+	zephyr,user {
+		/* 0: servo, 1: left motor (ENA), 2: right motor (ENB) */
+		pwms = <&servo_pwm 1 PWM_MSEC(20) PWM_POLARITY_NORMAL>,
+		       <&motor_pwm 3 PWM_USEC(100) PWM_POLARITY_NORMAL>,
+		       <&motor_pwm 4 PWM_USEC(100) PWM_POLARITY_NORMAL>;
+		in1-gpios = <&gpiob 5 GPIO_ACTIVE_HIGH>;   /* D4, also drives IN3 */
+		in2-gpios = <&gpiob 4 GPIO_ACTIVE_HIGH>;   /* D5, also drives IN4 */
+		/* 0: left motor (A3), 1: right motor (A2), 2: servo (A4) */
+		io-channels = <&adc1 8>, <&adc1 4>, <&adc1 11>;
+	};
+};
+
+/* motor pwm on D15 (ENA) and D14 (ENB), same timer so both share a frequency */
+&timers4 {
+	status = "okay";
+
+	motor_pwm: pwm {
+		pinctrl-0 = <&tim4_ch3_pb8 &tim4_ch4_pb9>;
+		pinctrl-names = "default";
+		status = "okay";
+	};
+};
+
+/* current sensors: A3 = left motor, A2 = right motor, A4 = servo */
+&adc1 {
+	pinctrl-0 = <&adc1_in4_pa4 &adc1_in8_pb0 &adc1_in11_pc1>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	channel@4 {
+		reg = <4>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_TICKS, 144)>;
+		zephyr,resolution = <12>;
+	};
+
+	channel@8 {
+		reg = <8>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_TICKS, 144)>;
+		zephyr,resolution = <12>;
+	};
+
+	channel@b {
+		reg = <11>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_TICKS, 144)>;
+		zephyr,resolution = <12>;
+	};
+};
+
+/* built-in adc sensors from the board file, not used and they share adc1 */
+&die_temp { status = "disabled"; };
+&vref { status = "disabled"; };
+&vbat { status = "disabled"; };
