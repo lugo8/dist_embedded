@@ -121,7 +121,7 @@ class MyMainwindow(QtWidgets.QMainWindow):
         self.throttle_angle.setValue(state.lY)
         self.brake_angle.setValue(state.lRz)
 
-        feedback = False
+        feedback = True
         if(feedback):
             try:
                 force_byte = self.receive_socket.recvfrom(10)[0]
