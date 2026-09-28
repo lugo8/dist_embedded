@@ -1,0 +1,5 @@
+west:
+  command: /Users/leesiena/Desktop/18-649/.venv/bin/west build dist_embedded/stm_uart
+    --build-dir dist_embedded/stm_uart/build/nucleo_f401re/stm32f401xe -b nucleo_f401re
+  topdir: /Users/leesiena/Desktop/18-649
+  version: 1.5.0
