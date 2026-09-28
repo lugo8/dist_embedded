@@ -50,30 +50,42 @@ int resync(unsigned char *buf) {
 }
 
 char* get_packet(char *buf) {
-	//Function to get a packet from uart
-	//Buf must be big enough to account for the largest data len
+    static unsigned char window[256];   // persists between calls
+    static int filled = 0;              // bytes currently valid in window
 
-    //printf("Listening on /dev/serial0...\n");
+    while (1) {
+        if (filled == total_pkt_len) {
+            unsigned char checksum = checksum_sum(window, total_pkt_len - 1);
+            if (checksum == window[total_pkt_len - 1]) {
+                memcpy(buf, window, total_pkt_len);
+                filled = 0;             // consume the whole packet
+                return buf;
+            }
+            // bad checksum: slide forward one byte and refill
+            memmove(window, window + 1, total_pkt_len - 1);
+            filled--;
+        }
 
-	unsigned char window[total_pkt_len];
-	read_exact(fd, window, total_pkt_len);  // get 10 vbytes
+        int r = read(fd, window + filled, total_pkt_len - filled);
+        if (r > 0) {
+            filled += r;
+        } else {
+            return NULL;                // nothing new right now; partial data is kept
+        }
+    }
+}
 
-	while (1) {
-		//Test checksum
-		unsigned char checksum = checksum_sum(window, total_pkt_len - 1);
-		if (checksum == window[total_pkt_len - 1]) {
-			memcpy(buf, window, total_pkt_len);
-			
-			//print out the received data
-			printf("Received: ");
-			print_packet(buf, total_pkt_len);
-				
-			return (char*)buf;
+char* get_packet_of_type(char* buf, char type) {
+	//Wait for a packet of a certain type and return the data length
+	while(1) {
+		
+		get_packet(buf);
+		
+		if (buf[0] == type) {
+			return buf;
 		}
-
-		// slide window forward by 1 byte if it doesnt pass checksum
-		memmove(window, window + 1, total_pkt_len - 1);
-		read_exact(fd, window + total_pkt_len - 1, 1);  // read one new byte
+		
 	}
+		
 }
 

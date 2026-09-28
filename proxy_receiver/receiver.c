@@ -40,10 +40,10 @@ void *send_force(void *arg) {
   }
 
   while (1) {
-    usleep(TX_INTERVAL_MS * 1000);
+    char buf[11];
+    get_packet_of_type(buf, (char)(0x05));
+    force = buf[2];
     printf("Send force %d\n", force);
-    force += 5;
-    
     
     sendto(sockfd, (char*) &force, 1, MSG_CONFIRM,
 		    (struct sockaddr *) &servaddr, sizeof(servaddr));
@@ -93,11 +93,13 @@ int main() {
     memcpy(&state, recvbuf + 4, sizeof(state));
     
     //Print wheel state
-    printf("Receive state (Pkt: %8X) :  Wheel: %d | Throttle: %d | Brake: %d | \nA Btn: %d | B Btn: %d| X Btn: %d| Y Btn: %d| \nR Paddle: %d | L Paddle: %d | RSB: %d | LSB: %d| \n3 Lines: %d | 2 Boxes: %d | XBOX: %d | \n", 
-    packet_ct, state.lX, state.lY, state.lRz, 
-    state.rgbButtons[0], state.rgbButtons[1], state.rgbButtons[2], state.rgbButtons[3], state.rgbButtons[4],
-    state.rgbButtons[5], state.rgbButtons[8], state.rgbButtons[9], state.rgbButtons[6], state.rgbButtons[7],
-    state.rgbButtons[10]);
+    if(1) {
+		printf("Receive state (Pkt: %8X) :  Wheel: %d | Throttle: %d | Brake: %d | \nA Btn: %d | B Btn: %d| X Btn: %d| Y Btn: %d| \nR Paddle: %d | L Paddle: %d | RSB: %d | LSB: %d| \n3 Lines: %d | 2 Boxes: %d | XBOX: %d | \n", 
+		packet_ct, state.lX, state.lY, state.lRz, 
+		state.rgbButtons[0], state.rgbButtons[1], state.rgbButtons[2], state.rgbButtons[3], state.rgbButtons[4],
+		state.rgbButtons[5], state.rgbButtons[8], state.rgbButtons[9], state.rgbButtons[6], state.rgbButtons[7],
+		state.rgbButtons[10]);
+	}
     
     //Make button byte
     u_int8_t btnByte = 0;
