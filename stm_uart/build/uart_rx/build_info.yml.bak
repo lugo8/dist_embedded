@@ -1,5 +1,0 @@
-west:
-  command: /Users/leesiena/Desktop/18-649/.venv/bin/west build -p always -b nucleo_f401re
-    . -d build/uart_rx
-  topdir: /Users/leesiena/Desktop/18-649
-  version: 1.5.0
