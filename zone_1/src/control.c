@@ -1,5 +1,7 @@
 #include "control.h"
 
+#include <math.h>
+#include <stdlib.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
 
@@ -57,6 +59,56 @@ static float ff_duty(float rpm)
 	return ff_table[FF_N - 1].duty_pct;
 }
 
+/* Brake. A shorted-lead brake only resists in proportion to speed, so a wheel turned slowly
+ * by hand still spins. Once the wheels are nearly stopped, remember where they are and drive
+ * back toward that spot whenever they get pushed off it. Fast movement just gets the
+ * shorted-lead brake (no plugging at speed). */
+static bool hold_anchored;
+static int32_t hold_l, hold_r;
+
+static void brake_hold_release(void)
+{
+	hold_anchored = false;
+}
+
+static void brake_hold(uint32_t pct, float avg_rpm)
+{
+	int32_t pos_l, pos_r;
+
+	encoder_position(&pos_l, &pos_r);
+
+	if (!hold_anchored) {
+		if (fabsf(avg_rpm) > HOLD_ENTER_RPM) {
+			motor_brake_duty(pct);
+			return;
+		}
+		hold_l = pos_l;
+		hold_r = pos_r;
+		hold_anchored = true;
+	}
+
+	int32_t err_l = hold_l - pos_l; /* > 0: pushed backward, needs to drive forward */
+	int32_t err_r = hold_r - pos_r;
+	int32_t big = abs(err_l) >= abs(err_r) ? err_l : err_r; /* one direction pin pair drives both */
+
+	if (abs(big) <= HOLD_DEADBAND_COUNTS) {
+		motor_brake_duty(pct);
+		return;
+	}
+
+	/* enough to get the motor moving plus a bit per count of error, never more than the pedal allows */
+	uint32_t d_l = MIN(pct, (uint32_t)(HOLD_MIN_DUTY_PCT + HOLD_KP_PCT_PER_COUNT * abs(err_l)));
+	uint32_t d_r = MIN(pct, (uint32_t)(HOLD_MIN_DUTY_PCT + HOLD_KP_PCT_PER_COUNT * abs(err_r)));
+
+	if (big > 0) {
+		motor_forward();
+	} else {
+		motor_reverse();
+	}
+	/* only the wheels that are off in the dominant direction; the other one is left alone */
+	motor_duty((err_l * big > 0) ? d_l : 0, (err_r * big > 0) ? d_r : 0);
+}
+
 static void enter_error(void)
 {
 	motor_brake();
@@ -88,6 +140,7 @@ static void control_thread(void *p1, void *p2, void *p3)
 	int target_rpm = 0;
 	float meas_rpm = 0.0f;
 	float pid_trim = 0.0f; // last PID correction, held between ticks
+	float cruise_rpm = 0.0f; // speed the car is rolling down from after the throttle is released
 	int rpm_l = 0, rpm_r = 0;
 	uint32_t lat_max_us = 0;
 	struct spid pid;
@@ -138,34 +191,48 @@ static void control_thread(void *p1, void *p2, void *p3)
 			}
 		}
 
-		// wire brake is negative = pressed; the more negative, the harder the brake
-		uint32_t brake_pct = CLAMP(-(int)ws.brake, 0, WIRE_AXIS_MAX) * 100 / WIRE_AXIS_MAX;
-
+		uint32_t brake_pct = ((32767 - ws.brake) * 100) / 65535;
 		if (error || brake_pct > 0) {
 			pid_reset(&pid);
 			pid_trim = 0.0f;
 			target_rpm = 0;
+			cruise_rpm = 0.0f;
 			duty = 0;
 			if (!error) {
 				duty = brake_pct;
-				motor_brake_duty(brake_pct);
+				brake_hold(brake_pct, meas_rpm);
+			} else {
+				brake_hold_release();
 			}
 		} else {
+			brake_hold_release();
 			// wire throttle is negative = faster; zero or positive means no throttle
 			int thr = CLAMP(-(int)ws.throttle, 0, WIRE_AXIS_MAX) * WHEEL_THROTTLE_MAX / WIRE_AXIS_MAX;
 
 			if (thr <= THROTTLE_DEADZONE) {
-				target_rpm = 0;
+				/* pedal released: roll the target down like a car coasting, not hold it */
+				if (tick) {
+					cruise_rpm -= COAST_DECAY_RPM_PER_TICK;
+				}
+				cruise_rpm = MAX(cruise_rpm, 0.0f);
+				target_rpm = (int)cruise_rpm;
 			} else {
 				/* floor at the slowest speed the motor can hold, up to max */
 				target_rpm = RPM_AT_DEADBAND + (thr - THROTTLE_DEADZONE) * (MAX_TARGET_RPM - RPM_AT_DEADBAND) /
 						     (WHEEL_THROTTLE_MAX - THROTTLE_DEADZONE);
+				cruise_rpm = target_rpm;
 			}
 
 			if (target_rpm == 0) {
 				pid_reset(&pid);
 				pid_trim = 0.0f;
 				duty = 0;
+			} else if (target_rpm < RPM_AT_DEADBAND) {
+				/* rolling off below the slowest speed the motor can hold: no rpm to track,
+				 * just taper the duty down from the floor duty */
+				pid_reset(&pid);
+				pid_trim = 0.0f;
+				duty = ff_table[0].duty_pct * target_rpm / RPM_AT_DEADBAND;
 			} else {
 				float ff = ff_duty(target_rpm); // est duty cycle
 

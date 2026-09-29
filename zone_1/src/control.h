@@ -15,6 +15,16 @@
 
 
 
+/* brake hold: once nearly stopped, lock the wheels at the position they stopped at */
+#define HOLD_ENTER_RPM        40   /* above this just short the leads; anchor once slower than this */
+#define HOLD_DEADBAND_COUNTS  3    /* inside this error (1320 counts/rev) just short the leads */
+#define HOLD_MIN_DUTY_PCT     55   /* the motor doesn't move below ~50% duty, so push at least this hard */
+#define HOLD_KP_PCT_PER_COUNT 1.5f /* extra duty % per encoder count of error */
+
+/* throttle released: target rpm falls by this every 10 ms tick (0.5 -> 230 rpm rolls off in ~4.6 s;
+ * below the slowest holdable rpm the duty tapers to 0 over the rest of the ramp) */
+#define COAST_DECAY_RPM_PER_TICK 0.5f
+
 /* PID */
 #define MAX_TARGET_RPM     230
 

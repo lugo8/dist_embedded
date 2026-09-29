@@ -11,6 +11,7 @@ static const struct device *enc_l = DEVICE_DT_GET(DT_NODELABEL(enc_left));
 static const struct device *enc_r = DEVICE_DT_GET(DT_NODELABEL(enc_right));
 
 static uint32_t prev_l, prev_r;
+static int32_t pos_l, pos_r;
 
 static uint32_t read_count(const struct device *dev)
 {
@@ -55,8 +56,16 @@ void encoder_rpm(int period_ms, int *left, int *right)
 
 	prev_l = l;
 	prev_r = r;
+	pos_l += dl;
+	pos_r -= dr; /* mirrored, see below */
 
 	*left = to_rpm(dl, period_ms);
 	/* right motor is mirrored, so forward counts down */
 	*right = -to_rpm(dr, period_ms);
+}
+
+void encoder_position(int32_t *left, int32_t *right)
+{
+	*left = pos_l;
+	*right = pos_r;
 }
