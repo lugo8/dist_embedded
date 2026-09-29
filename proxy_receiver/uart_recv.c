@@ -25,7 +25,7 @@ int read_exact(int fd, unsigned char *buf, size_t n) {
                            + (now.tv_nsec - start.tv_nsec) / 1e6;
 
         if (elapsed_ms > timeout_ms) {
-            //printf("Error: Did not reach end of packet (timeout)\n");
+            printf("Error: Timeout\n");
             return -1;
         }
 
@@ -61,6 +61,7 @@ char* get_packet(char *buf) {
                 filled = 0;             // consume the whole packet
                 return buf;
             }
+            printf("Bad checksum, sliding window\n");
             // bad checksum: slide forward one byte and refill
             memmove(window, window + 1, total_pkt_len - 1);
             filled--;
@@ -82,6 +83,9 @@ char* get_packet_of_type(char* buf, char type) {
 		get_packet(buf);
 		
 		if (buf[0] == type) {
+			
+			//printf("Received: ");
+			//print_packet(buf, 11);
 			return buf;
 		}
 		

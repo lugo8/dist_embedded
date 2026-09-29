@@ -14,10 +14,10 @@
 #include "state.h"
 
 /** Configure this **/
-#define LOCAL_HOST "192.168.137.254" // IP of local interface
+#define LOCAL_HOST "172.26.166.20" // IP of local interface
 #define R_PORT 8000
 
-#define REMOTE_HOST "172.26.35.176"
+#define REMOTE_HOST "172.26.89.158"
 #define S_PORT 8001
 
 // 1 if the wheel/pedals are connected to a Mac (pedals are 0..32767, 0 = no press),
@@ -30,6 +30,7 @@
 #define STATE_SIZE sizeof(DIJOYSTATE2_t)
 
 void *send_force(void *arg) {
+  printf("start force");
   int8_t force = 0;
   int sockfd;
   struct sockaddr_in servaddr;
@@ -45,10 +46,15 @@ void *send_force(void *arg) {
 
   while (1) {
     char buf[11];
-    get_packet_of_type(buf, (char)(0x05));
-    force = buf[2];
-    printf("Send force %d\n", force);
+    get_packet_of_type(buf, (char)(0x04));
+    force = (int8_t)((float)(((buf[2] << 8 + buf[3]) - (buf[4] << 8 + buf[5]))/0xffff)); //TODO: change normalization and direction?
+    uint16_t motrL = buf[2] << 8 + buf[3];
+    uint16_t motrR = buf[4] << 8 + buf[5];
+    uint16_t servo = buf[6] << 8 + buf[7];
     
+    printf("Right Current: %d | Left Current: %d | Servo Current: %d\n", motrR, motrL, servo);
+    //printf("Send force %d\n", force);
+     
     sendto(sockfd, (char*) &force, 1, MSG_CONFIRM,
 		    (struct sockaddr *) &servaddr, sizeof(servaddr));
 
@@ -58,6 +64,7 @@ void *send_force(void *arg) {
 
 
 int main() {
+  printf("Start main\n");
   int sockfd;
   char buffer[STATE_SIZE + 1];
   init_uart(); // initialize uart
@@ -89,7 +96,7 @@ int main() {
     //Receive wheel state and send to rpi
     
     //Wait for wheel state from wheel
-    printf("Wait recv\n");
+    //printf("Wait recv\n");
     int n, len;
     n = recvfrom(sockfd, recvbuf, STATE_SIZE, MSG_WAITALL,
                   (struct sockaddr *) &servaddr, &len);
@@ -106,7 +113,7 @@ int main() {
 #endif
 
     //Print wheel state
-    if(1) {
+    if(0) {
 		printf("Receive state (Pkt: %8X) :  Wheel: %d | Throttle: %d | Brake: %d | \nA Btn: %d | B Btn: %d| X Btn: %d| Y Btn: %d| \nR Paddle: %d | L Paddle: %d | RSB: %d | LSB: %d| \n3 Lines: %d | 2 Boxes: %d | XBOX: %d | \n", 
 		packet_ct, state.lX, state.lY, state.lRz, 
 		state.rgbButtons[0], state.rgbButtons[1], state.rgbButtons[2], state.rgbButtons[3], state.rgbButtons[4],
@@ -137,11 +144,11 @@ int main() {
     }
     
     //Send packet
-    // type | number | length of data | steering | throttle | break | button byte | checksum
+    // type | number | steering | throttle | break | button byte | checksum
     unsigned char msg[10] = {
       0x01,
       (unsigned char)(msgNum++),
-      (unsigned char)((state.lX >> 8) & 0xFF), //TODO: Check this casting, it may be cutting off the sign of the value
+      (unsigned char)((state.lX >> 8) & 0xFF), 
       (unsigned char)(state.lX & 0xFF),
       (unsigned char)((state.lY >> 8) & 0xFF),
       (unsigned char)(state.lY & 0xFF),

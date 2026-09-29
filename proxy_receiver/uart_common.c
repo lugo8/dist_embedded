@@ -23,7 +23,7 @@ void print_packet(const unsigned char *buf, size_t len) {
 unsigned char checksum_sum(const unsigned char *data, size_t len) {
     unsigned char sum = 0;
     for (size_t i = 0; i < len; i++) {
-        sum += data[i];   // wraps naturally at 256 since it's unsigned char
+        sum ^= data[i];   // wraps naturally at 256 since it's unsigned char
     }
     return sum;
 }
