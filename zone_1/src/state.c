@@ -93,6 +93,26 @@ uint8_t state_get_zone_state(void)
 	return (uint8_t)atomic_get(&zone_state);
 }
 
+static int64_t last_bad_cmd_ms = -(BAD_CMD_HOLD_MS + 1); // not active at boot
+
+void state_note_bad_cmd(void)
+{
+	k_mutex_lock(&wheel_state_mutex, K_FOREVER);
+	last_bad_cmd_ms = k_uptime_get();
+	k_mutex_unlock(&wheel_state_mutex);
+}
+
+bool bad_cmd_active(void)
+{
+	int64_t last;
+
+	k_mutex_lock(&wheel_state_mutex, K_FOREVER);
+	last = last_bad_cmd_ms;
+	k_mutex_unlock(&wheel_state_mutex);
+
+	return (k_uptime_get() - last) < BAD_CMD_HOLD_MS;
+}
+
 // check if link is alive
 bool link_is_alive(void)
 {

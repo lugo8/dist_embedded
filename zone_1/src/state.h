@@ -8,6 +8,7 @@
 
 // timing stuff
 #define LINK_TIMEOUT_MS 150
+#define BAD_CMD_HOLD_MS 1000 // stay in BAD_CMD this long after rejected frame
 
 void state_set_wheel_state(const struct wheel_state *ws);
 void state_get_wheel_state(struct wheel_state *out);
@@ -23,6 +24,9 @@ void state_set_hb_drivetrain(const struct heartbeat *hb);
 void state_set_force_feedback(const struct force_feedback *fb);
 
 bool link_is_alive(void);
+
+void state_note_bad_cmd(void);
+bool bad_cmd_active(void);
 
 /* zone_state as reported in the status frame (enum zone_state) */
 void state_set_zone_state(uint8_t zone_state);

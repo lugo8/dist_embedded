@@ -211,10 +211,13 @@ static void control_thread(void *p1, void *p2, void *p3)
 		prev_right = ws.right_btn;
 
 		uint8_t want; 
-		if (link_is_alive()) {
-			want = (self_test) ? ZONE_STATE_FAILSAFE_SELF_TEST : ZONE_STATE_NORMAL;
-		} else {
+		// priority: link lost > bad command > self-test
+		if (!link_is_alive()) {
 			want = ZONE_STATE_FAILSAFE_LINK_LOST;
+		} else if (bad_cmd_active()) {
+			want = ZONE_STATE_FAILSAFE_BAD_CMD;
+		} else {
+			want = self_test ? ZONE_STATE_FAILSAFE_SELF_TEST : ZONE_STATE_NORMAL;
 		}
 
 		bool error = (want != ZONE_STATE_NORMAL);

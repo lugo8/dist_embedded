@@ -73,6 +73,12 @@ static void rx_thread(void *p1, void *p2, void *p3)
 				case MSG_WHEEL_STATE: {
 					struct wheel_state ws;
 
+					// check out of range (btns only)
+					if (!wheel_frame_valid(frame)) {
+						state_note_bad_cmd();
+						break;
+					}
+
 					decode_wheel_state(frame, &ws);
 					gpio_pin_toggle_dt(&tp_cmd_rx); /* CMD_RX test point */
 					state_set_wheel_state(&ws);

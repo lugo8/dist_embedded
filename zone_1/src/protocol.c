@@ -47,6 +47,12 @@ const char *zone_state_name(uint8_t zone_state)
 	}
 }
 
+// axes use the full int16 range so any value is fine; only the button byte can be out of range
+bool wheel_frame_valid(const uint8_t *frame)
+{
+	return (frame[2 + 6] & BTN_RESERVED_MASK) == 0;
+}
+
 // get wheel info
 void decode_wheel_state(const uint8_t *frame, struct wheel_state *out)
 {

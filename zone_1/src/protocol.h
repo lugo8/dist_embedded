@@ -19,6 +19,7 @@
 #define BTN_BIT_LEFT       7
 #define BTN_BIT_SELF_TEST  3 // B button
 #define BTN_BIT_RIGHT      0
+#define BTN_RESERVED_MASK  0x62 // bits 6, 5, 1 are never 1
 
 struct wheel_state {
 	uint8_t seq;
@@ -62,6 +63,7 @@ bool is_known_msg_type(uint8_t msg_type);
 
 const char *zone_state_name(uint8_t zone_state);
 
+bool wheel_frame_valid(const uint8_t *frame);
 void decode_wheel_state(const uint8_t *frame, struct wheel_state *out);
 void decode_heartbeat(const uint8_t *frame, struct heartbeat *out);
 void decode_force_feedback(const uint8_t *frame, struct force_feedback *out);

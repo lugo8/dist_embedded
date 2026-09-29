@@ -143,6 +143,10 @@ int main() {
       btnByte += 4;
     }
     
+    if (state.rgbButtons[3]) { // Y btn: inject an out-of-range command (bit 5 is reserved)
+      btnByte += 32;
+    }
+
     //Send packet
     // type | number | steering | throttle | break | button byte | checksum
     unsigned char msg[10] = {
