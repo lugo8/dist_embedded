@@ -79,6 +79,10 @@
 		       <&motor_pwm 4 PWM_USEC(100) PWM_POLARITY_NORMAL>;
 		in1-gpios = <&gpiob 5 GPIO_ACTIVE_HIGH>;   /* D4, also drives IN3 */
 		in2-gpios = <&gpiob 4 GPIO_ACTIVE_HIGH>;   /* D5, also drives IN4 */
+		/* scope test point: toggles on every valid wheel command */
+		tp-cmd-rx-gpios = <&gpioc 7 GPIO_ACTIVE_HIGH>;   /* D9 */
+		/* scope test point: toggles right after a new motor duty is written to the timer */
+		tp-pwm-set-gpios = <&gpioa 5 GPIO_ACTIVE_HIGH>;  /* D13 (also the Nucleo user LED) */
 		/* 0: left motor (A3), 1: right motor (A2), 2: servo (A4) */
 		io-channels = <&adc1 8>, <&adc1 4>, <&adc1 11>;
 	};

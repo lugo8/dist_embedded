@@ -109,19 +109,37 @@ static void brake_hold(uint32_t pct, float avg_rpm)
 	motor_duty((err_l * big > 0) ? d_l : 0, (err_r * big > 0) ? d_r : 0);
 }
 
-static void enter_error(void)
+struct press_detector {
+	bool level;
+	int64_t last_change_ms;
+};
+
+static bool pressed(struct press_detector *p, bool level, int64_t now)
+{
+	if (level == p->level) {
+		return false;
+	}
+
+	bool steady = (now - p->last_change_ms) >= SELF_TEST_DEBOUNCE_MS;
+
+	p->level = level;
+	p->last_change_ms = now;
+	return level && steady;
+}
+
+static void enter_error(uint8_t zone)
 {
 	motor_brake();
 	blinker_hazard(true);
-	state_set_zone_state(ZONE_STATE_FAILSAFE_LINK_LOST);
-	printk("ctl: ERROR (link lost) -> brake + hazards\n");
+	state_set_zone_state(zone);
+	printk("ctl: ERROR (%s) -> brake + hazards\n", zone_state_name(zone));
 }
 
 static void leave_error(void)
 {
 	blinker_hazard(false);
 	state_set_zone_state(ZONE_STATE_NORMAL);
-	printk("ctl: link back -> normal\n");
+	printk("ctl: back to normal\n");
 }
 
 static void control_thread(void *p1, void *p2, void *p3)
@@ -131,7 +149,10 @@ static void control_thread(void *p1, void *p2, void *p3)
 	ARG_UNUSED(p3);
 
 	int64_t next = k_uptime_get();
-	bool in_error = false; 
+	uint8_t zone = ZONE_STATE_NORMAL; // latest zone 
+	bool self_test = false;
+	struct press_detector st_btn = {.last_change_ms = -SELF_TEST_DEBOUNCE_MS};
+	int64_t last_press_ms = 0; // when self-test was last entered
 	bool prev_left = false;
 	bool prev_right = false;
 	uint32_t n = 0;
@@ -156,6 +177,18 @@ static void control_thread(void *p1, void *p2, void *p3)
 
 		state_get_wheel_state(&ws);
 
+		// first thing after the read: press = self-test on; a second press within the window = off
+		if (pressed(&st_btn, ws.self_test_btn, k_uptime_get())) {
+			int64_t now = k_uptime_get();
+
+			if (self_test && ((now - last_press_ms) <= SELF_TEST_DOUBLE_PRESS_MS)) {
+				self_test = false;
+			} else {
+				self_test = true;
+				last_press_ms = now;
+			}
+		}
+
 		// rpm sampling and PID assume a fixed CONTROL_PERIOD_MS step: tick only
 		if (tick) {
 			next += CONTROL_PERIOD_MS;
@@ -177,12 +210,18 @@ static void control_thread(void *p1, void *p2, void *p3)
 		prev_left = ws.left_btn;
 		prev_right = ws.right_btn;
 
-		bool error = !link_is_alive();
+		uint8_t want; 
+		if (link_is_alive()) {
+			want = (self_test) ? ZONE_STATE_FAILSAFE_SELF_TEST : ZONE_STATE_NORMAL;
+		} else {
+			want = ZONE_STATE_FAILSAFE_LINK_LOST;
+		}
 
-		if (error != in_error) {
-			in_error = error;
+		bool error = (want != ZONE_STATE_NORMAL);
+		if (want != zone) {
+			zone = want;
 			if (error) {
-				enter_error();
+				enter_error(zone);
 			} else {
 				leave_error();
 			}

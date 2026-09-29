@@ -15,6 +15,11 @@
 #define CMD_CHK_LEN   (10) // msg_type + seq + data
 #define CMD_FRAME_LEN (CMD_CHK_LEN + 1)      // + checksum
 
+// button byte: bit7 = left blinker, bit0 = right blinker, bits 4/3/2 = A/B/X (set by the Pi receiver)
+#define BTN_BIT_LEFT       7
+#define BTN_BIT_SELF_TEST  3 // B button
+#define BTN_BIT_RIGHT      0
+
 struct wheel_state {
 	uint8_t seq;
 	int16_t steering;
@@ -22,6 +27,7 @@ struct wheel_state {
 	int16_t brake;
 	bool left_btn;
 	bool right_btn;
+	bool self_test_btn;
 };
 
 struct heartbeat {

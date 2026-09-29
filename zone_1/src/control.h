@@ -47,6 +47,10 @@
 #define PID_I_ZONE_RPM     30.0f // only integrate when abs(error) is within this
 #define PID_OUT_LIMIT_PCT  20.0f // max duty the PID may change
 
+// self test 
+#define SELF_TEST_DEBOUNCE_MS     20  
+#define SELF_TEST_DOUBLE_PRESS_MS 500
+
 // start ctrl thread
 void control_start(void);
 

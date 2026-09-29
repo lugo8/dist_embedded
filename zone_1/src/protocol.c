@@ -56,8 +56,9 @@ void decode_wheel_state(const uint8_t *frame, struct wheel_state *out)
 	out->steering = (data[0] << 8 | data[1]);
 	out->throttle = (data[2] << 8 | data[3]);
 	out->brake = (data[4] << 8 | data[5]);
-	out->left_btn = data[6] >> 7;
-	out->right_btn = data[6] & 0x01;
+	out->left_btn = (data[6] >> BTN_BIT_LEFT) & 1;
+	out->right_btn = (data[6] >> BTN_BIT_RIGHT) & 1;
+	out->self_test_btn = (data[6] >> BTN_BIT_SELF_TEST) & 1;
 }
 
 // get heartbeat info
