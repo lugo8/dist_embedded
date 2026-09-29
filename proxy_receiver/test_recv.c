@@ -5,8 +5,8 @@ int main(void) {
     
     while(1) {
 		
-		char buf[256];
-		get_packet(buf);
+		char buf[11];
+		get_packet_of_type(buf, 0x04);
 		
 		printf("End of packet!\n");
 	}

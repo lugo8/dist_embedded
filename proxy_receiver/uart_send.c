@@ -39,9 +39,10 @@ int send_message(const char *msgNoPad, int msgLen) {
     msgWChecksum[total_pkt_len - 1] = checksum; 
     
     //Send message
+    send_packet(msgWChecksum, total_pkt_len);
     //printf("Sent: ");
     //print_packet(msgWChecksum, total_pkt_len);
-    send_packet(msgWChecksum, total_pkt_len);
+    
 }
 
 
