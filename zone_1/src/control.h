@@ -4,10 +4,14 @@
 #define CONTROL_PERIOD_MS  10
 
 // TODO: placeholder values
-#define WHEEL_STEER_MAX    900   /* 0 = full left, 450 = center, 900 = full right */
-#define WHEEL_THROTTLE_MAX 1000
+#define WHEEL_STEER_MAX    900   /* servo/blinker scale: 0 = full left, 450 = center, 900 = full right */
+#define STEER_CENTER       (WHEEL_STEER_MAX / 2)
+/* the Pi forwards the raw wheel axes (lX/lY/lRz) as signed 16-bit values:
+ * steering negative = left, 0 = center; throttle/brake negative = pressed.
+ * Full travel is +/-WIRE_AXIS_MAX, scaled onto the 0..WHEEL_*_MAX scales below. */
+#define WIRE_AXIS_MAX      32767
+#define WHEEL_THROTTLE_MAX 1000  /* magnitude; on the wire throttle is negative = faster */
 #define WHEEL_BRAKE_MAX    1000
-#define BRAKE_THRESHOLD    100   /* brake counts as pressed above this */
 
 
 

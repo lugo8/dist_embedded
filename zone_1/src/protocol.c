@@ -50,7 +50,7 @@ const char *zone_state_name(uint8_t zone_state)
 // get wheel info
 void decode_wheel_state(const uint8_t *frame, struct wheel_state *out)
 {
-	const uint8_t *data = &frame[2];
+	const uint8_t *data = frame+2;
 
 	out->seq = frame[1];
 	out->steering = (data[0] << 8 | data[1]);

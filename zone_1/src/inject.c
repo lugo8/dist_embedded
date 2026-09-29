@@ -63,7 +63,7 @@ static void inject_thread(void *p1, void *p2, void *p3)
 				throttle = 0;
 				break;
 			case ' ':
-				brake = brake ? 0 : WHEEL_BRAKE_MAX;
+				brake = brake ? 0 : -WIRE_AXIS_MAX; /* negative = pressed, full brake */
 				break;
 			case 'q':
 				left_hold = BTN_HOLD_TICKS;
@@ -84,10 +84,16 @@ static void inject_thread(void *p1, void *p2, void *p3)
 		if (!link_cut) {
 			uint8_t data[8] = {0};
 
-			data[0] = (steering >> 8) & 0xFF;
-			data[1] = steering & 0xFF;
-			data[2] = (throttle >> 8) & 0xFF;
-			data[3] = throttle & 0xFF;
+			/* the injector's steering/throttle are 0-based (0 = left, 450 = center;
+			 * 0 = idle, up = faster); convert to the wire convention:
+			 * steering signed around 0 (negative = left), throttle negative = faster */
+			int16_t wire_steer = (steering - STEER_CENTER) * WIRE_AXIS_MAX / STEER_CENTER;
+			int16_t wire_thr = -throttle * WIRE_AXIS_MAX / WHEEL_THROTTLE_MAX;
+
+			data[0] = (wire_steer >> 8) & 0xFF;
+			data[1] = wire_steer & 0xFF;
+			data[2] = (wire_thr >> 8) & 0xFF;
+			data[3] = wire_thr & 0xFF;
 			data[4] = (brake >> 8) & 0xFF;
 			data[5] = brake & 0xFF;
 			data[6] = (left_hold ? 0x80 : 0) | (right_hold ? 0x01 : 0);

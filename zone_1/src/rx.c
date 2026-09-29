@@ -18,6 +18,22 @@ static struct ring_buf rx_ring_buf;
 
 static K_SEM_DEFINE(rx_sem, 0, 1); // binary for now
 
+// 1: print every received frame as hex (console output is slow, turn off for timing runs)
+#define RX_DUMP_FRAMES 1
+
+#if RX_DUMP_FRAMES
+static void dump_frame(const char *tag, const uint8_t *frame)
+{
+	printk("rx %s:", tag);
+	for (int i = 0; i < CMD_FRAME_LEN; i++) {
+		printk(" %02x", frame[i]);
+	}
+	printk("\n");
+}
+#else
+#define dump_frame(tag, frame) ARG_UNUSED(frame)
+#endif
+
 // read CMD_FRAME_LEN bytes and decode them
 static void rx_thread(void *p1, void *p2, void *p3)
 {
@@ -46,6 +62,7 @@ static void rx_thread(void *p1, void *p2, void *p3)
 			// if checksum fails, discard
 			if (checksum(frame, CMD_CHK_LEN) != frame[CMD_FRAME_LEN - 1]) {
 				printk("rx_thread: bad checksum (type 0x%02x)\n", msg_type);
+				dump_frame("BAD", frame);
 				continue;
 			}
 
@@ -95,6 +112,9 @@ static void rx_thread(void *p1, void *p2, void *p3)
 					printk("WRONG MSG\n");
 				}
 			}
+
+			// after the switch so the store + control wake-up aren't delayed by the print
+			dump_frame("ok ", frame);
 		}
 	}
 }

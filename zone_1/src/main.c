@@ -13,6 +13,9 @@
 #include "servo.h"
 #include "tx.h"
 
+/* 1: keyboard injector over the PA9<->PA10 jumper, 0: real Pi on usart1 */
+#define USE_INJECTOR 0
+
 static const struct device *const pi_uart = DEVICE_DT_GET(DT_NODELABEL(usart1));
 
 int main(void)
@@ -35,7 +38,9 @@ int main(void)
 	rx_init();
 	control_start();
 	tx_start();
+#if USE_INJECTOR
 	inject_start(); /* TEMP: stands in for the Pi, needs PA9<->PA10 jumper */
+#endif
 
 	printk("zone_1 up\n");
 

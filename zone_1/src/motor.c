@@ -44,10 +44,17 @@ void motor_duty(uint32_t left_pct, uint32_t right_pct)
  * in1 drops from 1 to 0 here when coming from forward, which gives dir_a an edge */
 void motor_brake(void)
 {
+	motor_brake_duty(100);
+}
+
+/* same shorted-leads brake, but only for pct% of each pwm period (the rest coasts),
+ * so the braking force scales with pct */
+void motor_brake_duty(uint32_t pct)
+{
 	gpio_pin_set_dt(&in1, 0);
 	gpio_pin_set_dt(&in2, 0);
-	pwm_set_pulse_dt(&ena, ena.period);
-	pwm_set_pulse_dt(&enb, enb.period);
+	pwm_set_pulse_dt(&ena, ena.period * MIN(pct, 100) / 100);
+	pwm_set_pulse_dt(&enb, enb.period * MIN(pct, 100) / 100);
 }
 
 /* enable off disconnects the motor so it spins down on its own */
