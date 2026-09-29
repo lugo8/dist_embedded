@@ -13,11 +13,11 @@
 #define WHEEL_THROTTLE_MAX 1000  /* magnitude; on the wire throttle is negative = faster */
 #define WHEEL_BRAKE_MAX    1000
 
-
-
 /* brake hold: once nearly stopped, lock the wheels at the position they stopped at */
-#define HOLD_ENTER_RPM        40   /* above this just short the leads; anchor once slower than this */
-#define HOLD_DEADBAND_COUNTS  3    /* inside this error (1320 counts/rev) just short the leads */
+#define HOLD_ENTER_RPM        5    /* above this just short the leads; anchor only once basically stopped
+                                    * (1 count per 10 ms tick is ~4.5 rpm). Anchoring while still rolling
+                                    * makes the wheels overshoot the anchor and the 55% kick back jitters */
+#define HOLD_DEADBAND_COUNTS  8    /* inside this error (1320 counts/rev) just short the leads */
 #define HOLD_MIN_DUTY_PCT     55   /* the motor doesn't move below ~50% duty, so push at least this hard */
 #define HOLD_KP_PCT_PER_COUNT 1.5f /* extra duty % per encoder count of error */
 
