@@ -135,7 +135,7 @@ int main() {
       btnByte += 16;
     }
     
-    if (state.rgbButtons[1]) { // 4th bit means b btn pressed and back should error
+    if (state.rgbButtons[1]) { // bit 3 = B btn = zone_1 self-test (BTN_BIT_SELF_TEST in protocol.h)
       btnByte += 8;
     }
     
