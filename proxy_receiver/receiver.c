@@ -19,6 +19,10 @@
 
 #define REMOTE_HOST "172.26.35.176"
 #define S_PORT 8001
+
+// 1 if the wheel/pedals are connected to a Mac (pedals are 0..32767, 0 = no press),
+// 0 for the Windows setup (pedals are -32768..32767, 32767 = no press)
+#define WHEEL_ON_MAC 1
 /** **/
 
 
@@ -91,7 +95,16 @@ int main() {
                   (struct sockaddr *) &servaddr, &len);
     uint32_t packet_ct = ((uint32_t*) recvbuf)[0];
     memcpy(&state, recvbuf + 4, sizeof(state));
-    
+
+#if WHEEL_ON_MAC
+    // Mac reports pedals as 0 (no press) .. 32767 (fully down); zone_1 expects
+    // 32767 (no press) .. -32768 (fully down). Wheel range is already close enough.
+    state.lY  = 32767 - 2 * (int32_t) state.lY;
+    state.lRz = 32767 - 2 * (int32_t) state.lRz;
+    if (state.lY  < -32768) state.lY  = -32768;
+    if (state.lRz < -32768) state.lRz = -32768;
+#endif
+
     //Print wheel state
     if(1) {
 		printf("Receive state (Pkt: %8X) :  Wheel: %d | Throttle: %d | Brake: %d | \nA Btn: %d | B Btn: %d| X Btn: %d| Y Btn: %d| \nR Paddle: %d | L Paddle: %d | RSB: %d | LSB: %d| \n3 Lines: %d | 2 Boxes: %d | XBOX: %d | \n", 
