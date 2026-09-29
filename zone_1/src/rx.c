@@ -2,6 +2,7 @@
 
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
+#include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
@@ -11,6 +12,8 @@
 #include "state.h"
 
 static const struct device *const pi_uart = DEVICE_DT_GET(DT_NODELABEL(usart1));
+static const struct gpio_dt_spec tp_cmd_rx =
+	GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), tp_cmd_rx_gpios);
 
 #define RX_RING_BUF_SIZE 64 // ring stores 64 bytes
 static uint8_t rx_ring_buf_data[RX_RING_BUF_SIZE];
@@ -19,7 +22,7 @@ static struct ring_buf rx_ring_buf;
 static K_SEM_DEFINE(rx_sem, 0, 1); // binary for now
 
 // 1: print every received frame as hex (console output is slow, turn off for timing runs)
-#define RX_DUMP_FRAMES 1
+#define RX_DUMP_FRAMES 0
 
 #if RX_DUMP_FRAMES
 static void dump_frame(const char *tag, const uint8_t *frame)
@@ -71,6 +74,7 @@ static void rx_thread(void *p1, void *p2, void *p3)
 					struct wheel_state ws;
 
 					decode_wheel_state(frame, &ws);
+					gpio_pin_toggle_dt(&tp_cmd_rx); /* CMD_RX test point */
 					state_set_wheel_state(&ws);
 					break;
 				}
@@ -148,6 +152,7 @@ static void pi_uart_isr(const struct device *dev, void *user_data)
 
 void rx_init(void)
 {
+	gpio_pin_configure_dt(&tp_cmd_rx, GPIO_OUTPUT_INACTIVE);
 	ring_buf_init(&rx_ring_buf, sizeof(rx_ring_buf_data), rx_ring_buf_data);
 	uart_irq_callback_user_data_set(pi_uart, pi_uart_isr, NULL);
 	uart_irq_rx_enable(pi_uart);

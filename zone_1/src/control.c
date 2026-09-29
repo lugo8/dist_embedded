@@ -163,10 +163,7 @@ static void control_thread(void *p1, void *p2, void *p3)
 			meas_rpm = rpm_average((rpm_l + rpm_r) / 2.0f); // avg across 4 ticks
 		}
 
-		// steering keeps tracking in every state -- holds val on link loss
-		// wire steering is signed (negative = left); scale +/-WIRE_AXIS_MAX onto 0..WHEEL_STEER_MAX
-		int angle = CLAMP(((int)ws.steering + WIRE_AXIS_MAX) * WHEEL_STEER_MAX / (2 * WIRE_AXIS_MAX),
-				  0, WHEEL_STEER_MAX);
+		int angle = ((int)ws.steering - INT16_MIN) * WHEEL_STEER_MAX / UINT16_MAX;
 		srv_us = servo_set_angle(angle);
 		blinker_steer(angle);
 
