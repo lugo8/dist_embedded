@@ -10,8 +10,10 @@
 #include <inttypes.h>
 #include "uart_send.c"
 #include "uart_recv.c"
-
 #include "state.h"
+
+// Need to compile with the following flags:
+// gcc receiver.c -o proxy_receiver -lgpiod -lpthread
 
 /** Configure this **/
 #define LOCAL_HOST "172.26.166.20" // IP of local interface
@@ -23,6 +25,7 @@
 // 1 if the wheel/pedals are connected to a Mac (pedals are 0..32767, 0 = no press),
 // 0 for the Windows setup (pedals are -32768..32767, 32767 = no press)
 #define WHEEL_ON_MAC 1
+#define MAX_FORCE_VAL 100
 /** **/
 
 
@@ -47,12 +50,11 @@ void *send_force(void *arg) {
   while (1) {
     char buf[11];
     get_packet_of_type(buf, (char)(0x04));
-    force = (int8_t)((float)(((buf[2] << 8 + buf[3]) - (buf[4] << 8 + buf[5]))/0xffff)); //TODO: change normalization and direction?
     uint16_t motrL = buf[2] << 8 + buf[3];
     uint16_t motrR = buf[4] << 8 + buf[5];
     uint16_t servo = buf[6] << 8 + buf[7];
-    
-    printf("Right Current: %d | Left Current: %d | Servo Current: %d\n", motrR, motrL, servo);
+    force = ((motrR - motrL) / (65535)) * MAX_FORCE_VAL; //scale the input to be a function of the difference in left and right current
+    //printf("Right Current: %d | Left Current: %d | Servo Current: %d\n", motrR, motrL, servo);
     //printf("Send force %d\n", force);
      
     sendto(sockfd, (char*) &force, 1, MSG_CONFIRM,
@@ -113,14 +115,13 @@ int main() {
 #endif
 
     //Print wheel state
-    if(0) {
+    if (0) { 
 		printf("Receive state (Pkt: %8X) :  Wheel: %d | Throttle: %d | Brake: %d | \nA Btn: %d | B Btn: %d| X Btn: %d| Y Btn: %d| \nR Paddle: %d | L Paddle: %d | RSB: %d | LSB: %d| \n3 Lines: %d | 2 Boxes: %d | XBOX: %d | \n", 
 		packet_ct, state.lX, state.lY, state.lRz, 
 		state.rgbButtons[0], state.rgbButtons[1], state.rgbButtons[2], state.rgbButtons[3], state.rgbButtons[4],
 		state.rgbButtons[5], state.rgbButtons[8], state.rgbButtons[9], state.rgbButtons[6], state.rgbButtons[7],
 		state.rgbButtons[10]);
 	}
-    
     //Make button byte
     u_int8_t btnByte = 0;
     if (state.rgbButtons[4]) { //rightmost bit means right turn signal
@@ -135,7 +136,7 @@ int main() {
       btnByte += 16;
     }
     
-    if (state.rgbButtons[1]) { // bit 3 = B btn = zone_1 self-test (BTN_BIT_SELF_TEST in protocol.h)
+    if (state.rgbButtons[1]) { // 4th bit B btn = zone_1 self-test (BTN_BIT_SELF_TEST in protocol.h)
       btnByte += 8;
     }
     
@@ -143,7 +144,7 @@ int main() {
       btnByte += 4;
     }
     
-    if (state.rgbButtons[3]) { // Y btn: inject an out-of-range command (bit 5 is reserved)
+    if (state.rgbButtons[3]) { //6th bit means Y btn: inject an out-of-range command (bit 5 is reserved)
       btnByte += 32;
     }
 
@@ -161,7 +162,18 @@ int main() {
       btnByte
     };
     
-    send_message(msg, 9);
+    uint8_t timingDebug = 1;
+    uint8_t debugBtnVal = state.rgbButtons[1]; //0 is a, 1 is b
+    if(timingDebug && debugBtnVal == 128) { //Only send packets when B is pressed
+		
+		tx_indicator_set(1);   // pin HIGH: transmitting
+		send_message(msg, 9); //set new update
+		tx_indicator_set(0);   // pin LOW: done
+	}
+	
+	else {
+		send_message(msg, 9);
+	}
   }
 
   return 0;
