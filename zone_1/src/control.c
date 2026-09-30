@@ -65,13 +65,37 @@ static float ff_duty(float rpm)
  * shorted-lead brake (no plugging at speed). */
 static bool hold_anchored;
 static int32_t hold_l, hold_r;
+static struct spid hold_pid_l, hold_pid_r;
+static float trim_l, trim_r; // last PID correction per wheel, held between ticks
+static bool hold_driving;    // hysteresis: true from ENTER until back inside EXIT
+static int hold_dir;         // direction last driven (+1 forward, -1 reverse, 0 none)
+static int64_t hold_drive_ms; // when we last drove
+static int32_t hold_prev_abs; // error magnitude at the previous tick
+static bool hold_pushed;      // error shrank since the last tick: wheel is already returning, don't add drive
+
+static void brake_hold_init(void)
+{
+	pid_init(&hold_pid_l, HOLD_KP, HOLD_KI, HOLD_KD, HOLD_I_LIMIT_PCT, HOLD_I_ZONE_COUNTS,
+		 HOLD_OUT_LIMIT_PCT);
+	pid_init(&hold_pid_r, HOLD_KP, HOLD_KI, HOLD_KD, HOLD_I_LIMIT_PCT, HOLD_I_ZONE_COUNTS,
+		 HOLD_OUT_LIMIT_PCT);
+}
+
+static void brake_hold_reset_pid(void)
+{
+	pid_reset(&hold_pid_l);
+	pid_reset(&hold_pid_r);
+	trim_l = trim_r = 0.0f;
+}
 
 static void brake_hold_release(void)
 {
 	hold_anchored = false;
+	hold_driving = false;
+	hold_dir = 0;
 }
 
-static void brake_hold(uint32_t pct, float avg_rpm)
+static void brake_hold(uint32_t pct, float avg_rpm, bool tick)
 {
 	int32_t pos_l, pos_r;
 
@@ -85,20 +109,62 @@ static void brake_hold(uint32_t pct, float avg_rpm)
 		hold_l = pos_l;
 		hold_r = pos_r;
 		hold_anchored = true;
+		hold_prev_abs = 0;
+		hold_pushed = false;
+		brake_hold_reset_pid();
 	}
 
 	int32_t err_l = hold_l - pos_l; /* > 0: pushed backward, needs to drive forward */
 	int32_t err_r = hold_r - pos_r;
 	int32_t big = abs(err_l) >= abs(err_r) ? err_l : err_r; /* one direction pin pair drives both */
 
-	if (abs(big) <= HOLD_DEADBAND_COUNTS) {
+	// shrinking error = already heading back to the anchor on its own: let the shorted leads
+	// settle it. A growing error is an outside push, so keep driving against it.
+	if (tick) {
+		hold_pushed = abs(big) < hold_prev_abs;
+		hold_prev_abs = abs(big);
+	}
+
+	// hysteresis: start at ENTER, stop at EXIT
+	if (hold_driving) {
+		hold_driving = abs(big) > HOLD_EXIT_COUNTS;
+	} else {
+		hold_driving = abs(big) > HOLD_ENTER_COUNTS;
+	}
+
+	int dir = big > 0 ? 1 : -1;
+	int64_t now = k_uptime_get();
+	bool flipping = hold_dir != 0 && dir != hold_dir && (now - hold_drive_ms) < HOLD_REVERSE_LOCKOUT_MS;
+
+	if (!hold_driving || flipping || hold_pushed) {
+		if (!hold_driving) {
+			brake_hold_reset_pid(); // don't carry integral/derivative state into the next push
+		}
 		motor_brake_duty(pct);
 		return;
 	}
 
-	/* enough to get the motor moving plus a bit per count of error, never more than the pedal allows */
-	uint32_t d_l = MIN(pct, (uint32_t)(HOLD_MIN_DUTY_PCT + HOLD_KP_PCT_PER_COUNT * abs(err_l)));
-	uint32_t d_r = MIN(pct, (uint32_t)(HOLD_MIN_DUTY_PCT + HOLD_KP_PCT_PER_COUNT * abs(err_r)));
+	hold_dir = dir;
+	hold_drive_ms = now;
+
+	/* a wheel that isn't off in the dominant direction gets no drive and a clean PID */
+	bool drive_l = err_l * big > 0;
+	bool drive_r = err_r * big > 0;
+
+	if (tick) {
+		trim_l = drive_l ? pid_update(&hold_pid_l, abs(err_l)) : 0.0f;
+		trim_r = drive_r ? pid_update(&hold_pid_r, abs(err_r)) : 0.0f;
+		if (!drive_l) {
+			pid_reset(&hold_pid_l);
+		}
+		if (!drive_r) {
+			pid_reset(&hold_pid_r);
+		}
+	}
+
+	/* feedforward to get the motor moving, PID trim on top, never more than the pedal allows */
+	uint32_t d_l = (uint32_t)CLAMP(HOLD_MIN_DUTY_PCT + trim_l, 0.0f, (float)pct);
+	uint32_t d_r = (uint32_t)CLAMP(HOLD_MIN_DUTY_PCT + trim_r, 0.0f, (float)pct);
 
 	if (big > 0) {
 		motor_forward();
@@ -106,7 +172,7 @@ static void brake_hold(uint32_t pct, float avg_rpm)
 		motor_reverse();
 	}
 	/* only the wheels that are off in the dominant direction; the other one is left alone */
-	motor_duty((err_l * big > 0) ? d_l : 0, (err_r * big > 0) ? d_r : 0);
+	motor_duty(drive_l ? d_l : 0, drive_r ? d_r : 0);
 }
 
 struct press_detector {
@@ -129,8 +195,7 @@ static bool pressed(struct press_detector *p, bool level, int64_t now)
 
 static void enter_error(uint8_t zone)
 {
-	motor_brake();
-	blinker_hazard(true);
+	blinker_hazard(true); // the brake hold in the control loop takes over the motors
 	state_set_zone_state(zone);
 	printk("ctl: ERROR (%s) -> brake + hazards\n", zone_state_name(zone));
 }
@@ -167,6 +232,7 @@ static void control_thread(void *p1, void *p2, void *p3)
 	struct spid pid;
 
 	pid_init(&pid, PID_KP, PID_KI, PID_KD, PID_I_LIMIT_PCT, PID_I_ZONE_RPM, PID_OUT_LIMIT_PCT);
+	brake_hold_init();
 
 	while (1) {
 		// wake on a new wheel frame, or when the next 10 ms tick is due
@@ -236,13 +302,10 @@ static void control_thread(void *p1, void *p2, void *p3)
 			pid_trim = 0.0f;
 			target_rpm = 0;
 			cruise_rpm = 0.0f;
-			duty = 0;
-			if (!error) {
-				duty = brake_pct;
-				brake_hold(brake_pct, meas_rpm);
-			} else {
-				brake_hold_release();
-			}
+			// error = full brake with position hold, so a hand push can't turn the wheels.
+			// steering is set above and doesn't depend on this branch
+			duty = error ? 100 : brake_pct;
+			brake_hold(duty, meas_rpm, tick);
 		} else {
 			brake_hold_release();
 			// wire throttle is negative = faster; zero or positive means no throttle
@@ -312,3 +375,4 @@ void control_start(void)
 {
 	k_thread_start(control_tid);
 }
+
