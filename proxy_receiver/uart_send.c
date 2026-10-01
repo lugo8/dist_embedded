@@ -20,8 +20,11 @@ int send_packet(const char *msg, int len) {
 	//Just sends the input message
 	
     //const char *msg = "Hello from Pi\n";
+    gpio_indicator_set(TX_INDICATOR_PIN, 1);   // pin HIGH: transmitting
     int n = write(fd, msg, len);
     //printf("Wrote %d bytes\n", n);
+    gpio_indicator_set(TX_INDICATOR_PIN, 0);   // pin LOW: done
+
     
 
     return 0;
@@ -41,8 +44,8 @@ int send_message(const char *msgNoPad, int msgLen) {
     
     //Send message
     send_packet(msgWChecksum, total_pkt_len);
-    printf("Sent: ");
-    print_packet(msgWChecksum, total_pkt_len);
+    //printf("Sent: ");
+    //print_packet(msgWChecksum, total_pkt_len);
     
 }
 

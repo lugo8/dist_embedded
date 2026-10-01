@@ -8,9 +8,11 @@
 #include <netinet/in.h> 
 #include "pthread.h"
 #include <inttypes.h>
+#include <time.h>
 #include "uart_send.c"
 #include "uart_recv.c"
 #include "state.h"
+
 
 // Need to compile with the following flags:
 // gcc receiver.c -o proxy_receiver -lgpiod -lpthread
@@ -19,18 +21,22 @@
 #define LOCAL_HOST "172.26.166.20" // IP of local interface
 #define R_PORT 8000
 
-#define REMOTE_HOST "172.26.89.158"
+#define REMOTE_HOST "172.26.76.97"
 #define S_PORT 8001
 
 // 1 if the wheel/pedals are connected to a Mac (pedals are 0..32767, 0 = no press),
 // 0 for the Windows setup (pedals are -32768..32767, 32767 = no press)
-#define WHEEL_ON_MAC 1
+#define WHEEL_ON_MAC 0
 #define MAX_FORCE_VAL 100
 /** **/
 
 
 #define TX_INTERVAL_MS 300
 #define STATE_SIZE sizeof(DIJOYSTATE2_t)
+
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+
+uint8_t system_state = 0;
 
 void *send_force(void *arg) {
   printf("start force");
@@ -46,15 +52,36 @@ void *send_force(void *arg) {
     perror("failed to create socket");
     exit(EXIT_FAILURE);
   }
-
+	char buf[11];
+    struct timespec start, end;
   while (1) {
-    char buf[11];
-    get_packet_of_type(buf, (char)(0x04));
+    
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    get_packet_of_type(buf, (char)(0x04)); //Get stm32 heartbeat
+    clock_gettime(CLOCK_MONOTONIC, &end);
+	double elapsed_ms = (end.tv_sec - start.tv_sec) * 1000.0
+                       + (end.tv_nsec - start.tv_nsec) / 1e6;
+    
+    pthread_mutex_lock(&lock);
+    if(elapsed_ms >= 60) { //Havent received 3 stm32 packets
+		system_state = 1;
+		printf("ERROR\n");
+	} else {
+		system_state = 0;
+	}
+	pthread_mutex_unlock(&lock);
+
+    
+    //Current sensing from the motors
     uint16_t motrL = buf[2] << 8 + buf[3];
     uint16_t motrR = buf[4] << 8 + buf[5];
     uint16_t servo = buf[6] << 8 + buf[7];
+    //Zone states
+    uint16_t zone_state_A = buf[8];
+    uint16_t zone_state_B = buf[9];
     force = ((motrR - motrL) / (65535)) * MAX_FORCE_VAL; //scale the input to be a function of the difference in left and right current
-    //printf("Right Current: %d | Left Current: %d | Servo Current: %d\n", motrR, motrL, servo);
+    printf("Right Current: %d | Left Current: %d | Servo Current: %d\n", motrR, motrL, servo);
+    printf("Zone A: %d | Zone B: %d\n", zone_state_A, zone_state_B);
     //printf("Send force %d\n", force);
      
     sendto(sockfd, (char*) &force, 1, MSG_CONFIRM,
@@ -100,6 +127,7 @@ int main() {
     //Wait for wheel state from wheel
     //printf("Wait recv\n");
     int n, len;
+    gpio_indicator_set(UDP_RX_INDICATOR_PIN, 1); //Indicate waiting for udp state update
     n = recvfrom(sockfd, recvbuf, STATE_SIZE, MSG_WAITALL,
                   (struct sockaddr *) &servaddr, &len);
     uint32_t packet_ct = ((uint32_t*) recvbuf)[0];
@@ -110,6 +138,8 @@ int main() {
     // 32767 (no press) .. -32768 (fully down). Wheel range is already close enough.
     state.lY  = 32767 - 2 * (int32_t) state.lY;
     state.lRz = 32767 - 2 * (int32_t) state.lRz;
+    state.lX = 32767 - 2 * (int32_t) state.lX;
+    if (state.lX  < -32768) state.lX  = -32768;
     if (state.lY  < -32768) state.lY  = -32768;
     if (state.lRz < -32768) state.lRz = -32768;
 #endif
@@ -150,6 +180,7 @@ int main() {
 
     //Send packet
     // type | number | steering | throttle | break | button byte | checksum
+    pthread_mutex_lock(&lock);
     unsigned char msg[10] = {
       0x01,
       (unsigned char)(msgNum++),
@@ -159,20 +190,19 @@ int main() {
       (unsigned char)(state.lY & 0xFF),
       (unsigned char)((state.lRz >> 8) & 0xFF),
       (unsigned char)(state.lRz & 0xFF),
-      btnByte
+      btnByte, 
+      system_state
     };
+    pthread_mutex_unlock(&lock);
     
     uint8_t timingDebug = 1;
     uint8_t debugBtnVal = state.rgbButtons[1]; //0 is a, 1 is b
     if(timingDebug && debugBtnVal == 128) { //Only send packets when B is pressed
-		
-		tx_indicator_set(1);   // pin HIGH: transmitting
-		send_message(msg, 9); //set new update
-		tx_indicator_set(0);   // pin LOW: done
+		send_message(msg, 10); //set new update
 	}
 	
 	else {
-		send_message(msg, 9);
+		send_message(msg, 10);
 	}
   }
 
