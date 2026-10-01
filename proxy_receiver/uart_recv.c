@@ -10,7 +10,7 @@ int read_exact(int fd, unsigned char *buf, size_t n) {
     float timeout_ms = 0.1; //Timeout in ms 
     struct timespec start, now;
     clock_gettime(CLOCK_MONOTONIC, &start);
-    
+        
     while (total < n) {
 		//Get values and determine if we made it to the desired number of values
         int r = read(fd, buf + total, n - total);

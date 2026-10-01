@@ -9,7 +9,8 @@
 #include <unistd.h>
 #include <gpiod.h>
 
-#define TX_INDICATOR_PIN 27   // GPIO27 = pick any free GPIO
+#define TX_INDICATOR_PIN 27   
+#define UDP_RX_INDICATOR_PIN 22   
 
 
 int fd = -1;
@@ -19,14 +20,24 @@ const u_int8_t total_pkt_len = pkt_len_no_chksum + 1;
 
 
 
-struct gpiod_chip *tx_chip = NULL;
-struct gpiod_line_request *tx_request = NULL;
+#define MAX_GPIO_PINS 64
 
-int init_tx_indicator(void) {
-    tx_chip = gpiod_chip_open("/dev/gpiochip0");
-    if (!tx_chip) {
-        perror("gpiod_chip_open");
+static struct gpiod_chip *gpio_chip = NULL;
+static struct gpiod_line_request *gpio_requests[MAX_GPIO_PINS] = { NULL };
+
+int init_gpio_indicator(unsigned int pin) {
+    if (pin >= MAX_GPIO_PINS) {
+        fprintf(stderr, "Pin %u out of range\n", pin);
         return -1;
+    }
+
+    // Open the chip once, reuse for every pin
+    if (!gpio_chip) {
+        gpio_chip = gpiod_chip_open("/dev/gpiochip0");
+        if (!gpio_chip) {
+            perror("gpiod_chip_open");
+            return -1;
+        }
     }
 
     struct gpiod_line_settings *settings = gpiod_line_settings_new();
@@ -34,28 +45,36 @@ int init_tx_indicator(void) {
     gpiod_line_settings_set_output_value(settings, GPIOD_LINE_VALUE_INACTIVE);
 
     struct gpiod_line_config *line_cfg = gpiod_line_config_new();
-    unsigned int offsets[] = { TX_INDICATOR_PIN };
+    unsigned int offsets[] = { pin };
     gpiod_line_config_add_line_settings(line_cfg, offsets, 1, settings);
 
     struct gpiod_request_config *req_cfg = gpiod_request_config_new();
-    gpiod_request_config_set_consumer(req_cfg, "uart_tx");
+    char consumer_name[32];
+    snprintf(consumer_name, sizeof(consumer_name), "gpio_pin_%u", pin);
+    gpiod_request_config_set_consumer(req_cfg, consumer_name);
 
-    tx_request = gpiod_chip_request_lines(tx_chip, req_cfg, line_cfg);
+    struct gpiod_line_request *request = gpiod_chip_request_lines(gpio_chip, req_cfg, line_cfg);
 
     gpiod_line_settings_free(settings);
     gpiod_line_config_free(line_cfg);
     gpiod_request_config_free(req_cfg);
 
-    if (!tx_request) {
+    if (!request) {
         perror("gpiod_chip_request_lines");
         return -1;
     }
 
+    gpio_requests[pin] = request;
     return 0;
 }
 
-void tx_indicator_set(int value) {
-    gpiod_line_request_set_value(tx_request, TX_INDICATOR_PIN,
+void gpio_indicator_set(unsigned int pin, int value) {
+    if (pin >= MAX_GPIO_PINS || !gpio_requests[pin]) {
+        fprintf(stderr, "Pin %u not initialized\n", pin);
+        return;
+    }
+
+    gpiod_line_request_set_value(gpio_requests[pin], pin,
         value ? GPIOD_LINE_VALUE_ACTIVE : GPIOD_LINE_VALUE_INACTIVE);
 }
 
@@ -74,7 +93,7 @@ unsigned char checksum_sum(const unsigned char *data, size_t len) {
 }
 
 int uart_open(const char *device, speed_t baud) {
-	init_tx_indicator();
+	
     fd = open(device, O_RDWR | O_NOCTTY | O_NDELAY);
     if (fd == -1) {
         perror("open");
@@ -124,6 +143,8 @@ int uart_open(const char *device, speed_t baud) {
 }
 
 int init_uart(void) {
+	init_gpio_indicator(TX_INDICATOR_PIN);
+	init_gpio_indicator(UDP_RX_INDICATOR_PIN);
 	uart_open("/dev/serial0", B115200);
 	
     if (fd == -1) return 1;
