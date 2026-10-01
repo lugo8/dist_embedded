@@ -9,13 +9,13 @@ from PyQt5 import QtGui, QtWidgets, QtCore
 
 import logitech_steering_wheel as lsw
 
-TX_INTERVAL_MS = 50
+TX_INTERVAL_MS = 45
 
 ## Configure this ##
-REMOTE_HOST = "192.168.137.254"
+REMOTE_HOST = "172.26.166.20"
 S_PORT = 8000
 
-LOCAL_HOST = "172.26.35.176" # IP of local interface
+LOCAL_HOST = "172.26.76.97" # IP of local interface
 R_PORT = 8001
 ##
 
