@@ -42,6 +42,8 @@ const char *zone_state_name(uint8_t zone_state)
 		return "FAILSAFE_SELF_TEST";
 	case ZONE_STATE_FAILSAFE_BAD_CMD:
 		return "FAILSAFE_BAD_CMD";
+	case ZONE_STATE_FAILSAFE_RPI_ERROR:
+		return "FAILSAFE_RPI_ERROR";
 	default:
 		return "UNKNOWN";
 	}
@@ -65,6 +67,7 @@ void decode_wheel_state(const uint8_t *frame, struct wheel_state *out)
 	out->left_btn = (data[6] >> BTN_BIT_LEFT) & 1;
 	out->right_btn = (data[6] >> BTN_BIT_RIGHT) & 1;
 	out->self_test_btn = (data[6] >> BTN_BIT_SELF_TEST) & 1;
+	out->rpi_error = (data[7] & 1);
 }
 
 // get heartbeat info

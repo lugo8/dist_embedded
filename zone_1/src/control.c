@@ -277,11 +277,13 @@ static void control_thread(void *p1, void *p2, void *p3)
 		prev_right = ws.right_btn;
 
 		uint8_t want; 
-		// priority: link lost > bad command > self-test
+		// priority: link lost > bad command > Pi error > self-test
 		if (!link_is_alive()) {
 			want = ZONE_STATE_FAILSAFE_LINK_LOST;
 		} else if (bad_cmd_active()) {
 			want = ZONE_STATE_FAILSAFE_BAD_CMD;
+		} else if (ws.rpi_error) {
+			want = ZONE_STATE_FAILSAFE_RPI_ERROR;
 		} else {
 			want = self_test ? ZONE_STATE_FAILSAFE_SELF_TEST : ZONE_STATE_NORMAL;
 		}

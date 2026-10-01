@@ -29,6 +29,7 @@ struct wheel_state {
 	bool left_btn;
 	bool right_btn;
 	bool self_test_btn;
+	bool rpi_error;
 };
 
 struct heartbeat {
@@ -55,6 +56,7 @@ enum zone_state {
 	ZONE_STATE_FAILSAFE_LINK_LOST = 1,
 	ZONE_STATE_FAILSAFE_SELF_TEST = 2, // add when there's button
 	ZONE_STATE_FAILSAFE_BAD_CMD = 3,   // for out-of-range detection
+	ZONE_STATE_FAILSAFE_RPI_ERROR = 4, // the Pi reported its own error state
 };
 
 uint8_t checksum(const uint8_t *data, size_t len);

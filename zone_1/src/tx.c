@@ -2,6 +2,7 @@
 
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
+#include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/kernel.h>
 
@@ -11,8 +12,11 @@
 
 static const struct device *const pi_uart = DEVICE_DT_GET(DT_NODELABEL(usart1));
 
+static const struct gpio_dt_spec tp_cmd_tx =
+	GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), tp_cmd_tx_gpios);
+
 // timing stuff
-#define STATUS_PERIOD_MS 20
+#define STATUS_PERIOD_MS 18
 
 // serializes whole-frame sends - status_tx_thread and the link-loss test
 // thread both transmit on pi_uart, and interleaved bytes from two threads
@@ -36,6 +40,7 @@ static void status_tx_thread(void *p1, void *p2, void *p3)
 	ARG_UNUSED(p3);
 
 	uint8_t seq = 0;
+	int64_t next = k_uptime_get(); // absolute schedule so the ADC read + send time doesn't stretch the period
 
 	while (1) {
 		// wire field is unsigned; sensor noise around zero can read slightly negative
@@ -52,8 +57,10 @@ static void status_tx_thread(void *p1, void *p2, void *p3)
 		uint8_t frame[CMD_FRAME_LEN];
 		encode_frame(MSG_STATUS, seq++, data, frame);
 		uart_send_frame(frame, CMD_FRAME_LEN);
+		gpio_pin_toggle_dt(&tp_cmd_tx); /* CMD_TX test point */
 
-		k_sleep(K_MSEC(STATUS_PERIOD_MS));
+		next += STATUS_PERIOD_MS;
+		k_sleep(K_TIMEOUT_ABS_MS(next));
 	}
 }
 
@@ -65,5 +72,6 @@ K_THREAD_DEFINE(status_tx_tid, STATUS_TX_STACK_SIZE, status_tx_thread, NULL, NUL
 
 void tx_start(void)
 {
+	gpio_pin_configure_dt(&tp_cmd_tx, GPIO_OUTPUT_INACTIVE);
 	k_thread_start(status_tx_tid);
 }

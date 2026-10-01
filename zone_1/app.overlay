@@ -83,6 +83,8 @@
 		tp-cmd-rx-gpios = <&gpioc 7 GPIO_ACTIVE_HIGH>;   /* D9 */
 		/* scope test point: toggles right after a new motor duty is written to the timer */
 		tp-pwm-set-gpios = <&gpioa 5 GPIO_ACTIVE_HIGH>;  /* D13 (also the Nucleo user LED) */
+		/* scope test point: toggles on every status frame sent to the Pi */
+		tp-cmd-tx-gpios = <&gpioc 6 GPIO_ACTIVE_HIGH>;   /* PC6, CN10 morpho header */
 		/* 0: left motor (A3), 1: right motor (A2), 2: servo (A4) */
 		io-channels = <&adc1 8>, <&adc1 4>, <&adc1 11>;
 	};
