@@ -1,0 +1,33 @@
+/ {
+	aliases {
+		can-a = &can_a;
+		can-b = &can_b;
+	};
+};
+
+&spi1 {
+	status = "okay";
+	/* index 0 = CAN A on D10 (PB6), index 1 = CAN B on D9 (PC7) */
+	cs-gpios = <&gpiob 6 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>,
+		   <&gpioc 7 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+
+	can_a: mcp2515@0 {
+		compatible = "microchip,mcp2515";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		int-gpios = <&gpioa 10 GPIO_ACTIVE_LOW>;  /* D2 */
+		osc-freq = <16000000>;                    /* match your crystal */
+		bus-speed = <500000>;
+		status = "okay";
+	};
+
+	can_b: mcp2515@1 {
+		compatible = "microchip,mcp2515";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+		int-gpios = <&gpiob 5 GPIO_ACTIVE_LOW>;   /* D4 */
+		osc-freq = <16000000>;
+		bus-speed = <500000>;
+		status = "okay";
+	};
+};
