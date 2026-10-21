@@ -1,5 +1,5 @@
 // Lab 3, N1 (Raspberry Pi), using the Lab 2 message catalog (can_protocol.h):
-// ZONE_CTRL and HB_COCKPIT out on can0 and can1; HB_STEERING, HB_DRIVETRAIN and FORCE_FEEDBACK in.
+// ZONE_CTRL, HB_COCKPIT and BLINKER out on can0 and can1; HB_STEERING, HB_DRIVETRAIN and FORCE_FEEDBACK in.
 //
 // Build: gcc -O2 -Wall receiver.c -o proxy_receiver
 // Run:   ./proxy_receiver [iface_A iface_B]     (default can0 can1; vcan0 vcan1 works for testing)
@@ -51,6 +51,12 @@
 #define DOUBLE_PRESS_MS   500
 #define HB_MISS_MS        55    // a zone/bus is dead after this long with no heartbeat (3 missed + margin)
 #define MON_TICK_MS       2     // how often HB_MON checks (must be <= 5 so DEG lights within 60 ms)
+#define BLINK_TICK_MS     2     // how often the blink thread checks if it has to send
+#define BLINK_TURN_HALF_MS   500 // turn signal: time between edges (1 Hz, R2.4)
+#define BLINK_HAZARD_HALF_MS 500 // hazard: time between edges (Lab 2 blinker.c used 250)
+#define BLINK_MIN_GAP_MS  20    // never send BLINKER closer together than this
+#define LEFT_THRESHOLD    299   // wheel angle 0..900, from Lab 2 blinker.c
+#define RIGHT_THRESHOLD   601
 
 static volatile uint32_t *gpio;
 
@@ -119,10 +125,11 @@ static int can_fd[2]; // [0] = bus A, [1] = bus B
 static const int tx_pin[2] = {PIN_TX_A, PIN_TX_B};
 
 // one 8-bit seq counter per message ID
-static uint8_t ctrl_seq = 0, hb_seq = 0;
+static uint8_t ctrl_seq = 0, hb_seq = 0, blink_seq = 0;
 
 // main thread: ZONE_CTRL
 // thread 1: HB_COCKPIT
+// thread 2: BLINKER
 static pthread_mutex_t tx_lock = PTHREAD_MUTEX_INITIALIZER;
 
 // send frame on both buses. CAN hardware adds and checks the CRC, so the payload carries none.
@@ -184,11 +191,51 @@ static struct { uint8_t seq; int64_t t; } dd[K_N]; // last accepted seq and arri
 static int force_fd;
 static struct sockaddr_in force_addr;
 
+// BLINKERS
+static int bl_state = BLINK_HAZARD; // starts in hazard
+static int bl_phase = 1; // 1 for LED on
+static int bl_dirty = 1; // 1 = state changed, a BLINKER must go out (starts 1: announce it)
+static int bl_passed = 0; // wheel went past the threshold; turn cancels when it comes back
+static int64_t bl_next_toggle; // when the next phase flip is due
+static int64_t bl_last_tx = INT64_MIN;
+
+static int64_t bl_half_ns(void) {
+  return (bl_state == BLINK_HAZARD ? BLINK_HAZARD_HALF_MS : BLINK_TURN_HALF_MS) * NS_PER_MS;
+}
+
+static void bl_set(int s) {
+  if (bl_state == s) return;
+  bl_state = s;
+  bl_passed = 0;
+  bl_phase = (s == BLINK_OFF) ? 0 : 1; // a change restarts the pattern with lamps on
+  bl_dirty = 1; // and the blink thread sends it right away
+}
+
+static void bl_left(void)  { if (bl_state != BLINK_HAZARD) bl_set(BLINK_LEFT); }  // hazards win
+static void bl_right(void) { if (bl_state != BLINK_HAZARD) bl_set(BLINK_RIGHT); }
+
+static void bl_hazard(int on) {
+  if (on) bl_set(BLINK_HAZARD);
+  else if (bl_state == BLINK_HAZARD) bl_set(BLINK_OFF);
+}
+
+// Cancel the turn signal once the wheel goes past the threshold and comes back.
+static void bl_steer(int angle) {
+  if (bl_state == BLINK_LEFT) {
+    if (angle < LEFT_THRESHOLD) bl_passed = 1;
+    else if (bl_passed) bl_set(BLINK_OFF);
+  } else if (bl_state == BLINK_RIGHT) {
+    if (angle > RIGHT_THRESHOLD) bl_passed = 1;
+    else if (bl_passed) bl_set(BLINK_OFF);
+  }
+}
+
 // enter err state
 static void enter_error(void) {
   if (!in_err) {
     in_err = 1;
     udp_valid = 0;  // need a fresh valid UDP update before we may leave again
+    bl_hazard(1);
   }
 }
 
@@ -215,6 +262,46 @@ static void *hb_thread(void *arg) {
     uint8_t data[CAN_DLC_HB];
     hb_encode(&hb, data);
     can_send_both(CAN_ID_HB_COCKPIT, data, CAN_DLC_HB);
+  }
+  return NULL;
+}
+
+// BLINKER TX thread, wakes every 2 ms
+static void *blink_thread(void *arg) {
+  (void) arg;
+  int64_t next = now_ns();
+
+  pthread_mutex_lock(&state_lock);
+  bl_next_toggle = now_ns() + bl_half_ns();
+  pthread_mutex_unlock(&state_lock);
+
+  while (1) {
+    next += BLINK_TICK_MS * NS_PER_MS;
+    sleep_until(next);
+    int64_t now = now_ns();
+
+    pthread_mutex_lock(&state_lock);
+    int send = 0;
+    if (bl_dirty && now - bl_last_tx >= BLINK_MIN_GAP_MS * NS_PER_MS) {
+      send = 1;                                    // state changed
+    } else if (!bl_dirty && now >= bl_next_toggle) {
+      if (bl_state != BLINK_OFF) bl_phase ^= 1;    // half period passed: flip lamps on/off
+      send = 1;
+    }
+    struct blinker_msg m = { .state = bl_state, .phase = bl_phase };
+    if (send) {
+      bl_dirty = 0;
+      bl_last_tx = now;
+      bl_next_toggle = now + bl_half_ns();
+    }
+    pthread_mutex_unlock(&state_lock);
+
+    if (send) {
+      m.seq = blink_seq++;
+      uint8_t data[CAN_DLC_BLINKER];
+      blinker_encode(&m, data);
+      can_send_both(CAN_ID_BLINKER, data, CAN_DLC_BLINKER);
+    }
   }
   return NULL;
 }
@@ -323,7 +410,10 @@ static void *mon_thread(void *arg) {
     if (!in_err && !all_alive) enter_error();
 
     // exit: no local fault, both peers alive, valid UDP update since the error began
-    if (in_err && !self_test && all_alive && udp_valid) in_err = 0;
+    if (in_err && !self_test && all_alive && udp_valid) {
+      in_err = 0;
+      bl_hazard(0);
+    }
 
     int st = !in_err ? 0 : (self_test ? 2 : 1); // 0 = normal, 1 = error, 2 = self-test
     pthread_mutex_unlock(&state_lock);
@@ -368,8 +458,9 @@ int main(int argc, char **argv) {
   force_addr.sin_port = htons(S_PORT);
   force_addr.sin_addr.s_addr = inet_addr(REMOTE_HOST);
 
-  pthread_t hb_tid, rx_tid, mon_tid;
+  pthread_t hb_tid, blink_tid, rx_tid, mon_tid;
   pthread_create(&hb_tid, NULL, hb_thread, NULL);
+  pthread_create(&blink_tid, NULL, blink_thread, NULL);
   pthread_create(&rx_tid, NULL, rx_thread, NULL);
   pthread_create(&mon_tid, NULL, mon_thread, NULL);
 
@@ -392,7 +483,9 @@ int main(int argc, char **argv) {
   uint8_t pkt[4 + sizeof(DIJOYSTATE2_t)];
   DIJOYSTATE2_t state;
 
-  // remembered between updates (for the test button)
+  // remembered between updates (for the button edges)
+  int prev_left = 0;
+  int prev_right = 0;
   int btn_level = 0; // was the B button down at the last update
   int64_t btn_change = -DEBOUNCE_MS * NS_PER_MS; // when it last changed
   int64_t last_press = 0; // when the last single press happened
@@ -440,10 +533,18 @@ int main(int argc, char **argv) {
 
     // test button (B): single press fails this zone, double press clears it
     int b_down = state.rgbButtons[1] != 0;
+    int left = state.rgbButtons[5] != 0;
+    int right = state.rgbButtons[4] != 0;
+    int angle = (c.steering + 32768) * 900 / 65535; // 0 = full left, 450 = center, 900 = full right
     int64_t now = now_ns();
 
     pthread_mutex_lock(&state_lock);
     udp_valid = 1; // set first: if this very update enters error below, it gets cleared again
+    bl_steer(angle);
+    if (left && !prev_left) bl_left(); // act on the press (the edge), not on holding
+    if (right && !prev_right) bl_right();
+    prev_left = left;
+    prev_right = right;
     if (b_down != btn_level) { // B button changed
       int steady = (now - btn_change) >= DEBOUNCE_MS * NS_PER_MS;
       btn_level = b_down;

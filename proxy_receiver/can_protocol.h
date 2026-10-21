@@ -20,10 +20,13 @@
 
 #define CAN_ID_FORCE_FEEDBACK 0x05 // Steering -> Cockpit
 
+#define CAN_ID_BLINKER        0x06 // Cockpit -> Steering, Drivetrain
+
 // every message is DLC 8; bytes after the last defined one are reserved and must be 0
 #define CAN_DLC_ZONE_CTRL      8
 #define CAN_DLC_HB             8
 #define CAN_DLC_FORCE_FEEDBACK 8
+#define CAN_DLC_BLINKER        8
 
 #define HB_USED_BYTES    2 // B0 flags, B1 seq
 #define FORCE_USED_BYTES 3 // B1,B0 force, B2 seq
@@ -44,6 +47,14 @@ struct heartbeat {
 
 struct force_feedback {
 	int16_t force;
+	uint8_t seq;
+};
+
+enum { BLINK_OFF = 0, BLINK_LEFT = 1, BLINK_RIGHT = 2, BLINK_HAZARD = 3 };
+
+struct blinker_msg {
+	uint8_t state;
+	uint8_t phase;
 	uint8_t seq;
 };
 
@@ -103,4 +114,14 @@ static inline bool force_decode(const uint8_t *d, uint8_t dlc, struct force_feed
 	out->force = (int16_t)(((uint16_t)d[1] << 8) | d[0]);
 	out->seq = d[2];
 	return true;
+}
+
+static inline void blinker_encode(const struct blinker_msg *b, uint8_t d[CAN_DLC_BLINKER])
+{
+	for (int i = 0; i < CAN_DLC_BLINKER; i++) {
+		d[i] = 0;
+	}
+	d[0] = b->state;
+	d[1] = b->phase;
+	d[2] = b->seq;
 }
