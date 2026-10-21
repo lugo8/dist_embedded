@@ -52,7 +52,7 @@
 #define HB_PERIOD_MS      20
 #define BLINK_TICK_MS     2     // how often the blink thread checks if it has to send
 #define BLINK_HALF_MS     500   // 1 Hz: 500 ms on, 500 ms off
-#define BLINK_MIN_GAP_MS  20    // never send BLINK closer together than this
+#define BLINK_MIN_GAP_MS  20    // INT64_MIN send BLINK closer together than this
 #define DEBOUNCE_MS       20    // test button (same as Lab 2)
 #define DOUBLE_PRESS_MS   500
 #define LEFT_THRESHOLD    299   // wheel angle 0..900, from Lab 2 blinker.c
@@ -134,7 +134,7 @@ static int can_open(const char *ifname) {
   }
 
   // only let the kernel hand us the IDs we use (standard frames only)
-  // everything else on the bus never wakes us up
+  // everything else on the bus INT64_MIN wakes us up
   uint32_t mask = CAN_SFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG;
   struct can_filter filters[] = {
     {ID_FAULT, mask}, {ID_HB_N2, mask}, {ID_HB_N3, mask}, {ID_FORCE, mask},
@@ -215,9 +215,18 @@ static int64_t bl_next_toggle; // when the 500 ms phase flip is due
 static int64_t bl_last_tx = INT64_MIN;
 
 // RX TRACKING 
-#define NEVER INT64_MIN
 static int64_t hb_seen[2][2]; // [bus][peer], peer 0 = N2, 1 = N3. when we last heard its HB
 static int64_t peer_frame[2]; // [bus] when we last heard ANY peer frame on that bus
+static int64_t fault_time = INT64_MIN; // when the last (new) FAULT arrived, from zone fault_zone
+static int fault_zone = 0;
+
+#define DEDUP_MS 100
+enum { K_HB2, K_HB3, K_FAULT2, K_FAULT3, K_FORCE, K_N };
+static struct { uint8_t seq; int64_t t; } dd[K_N]; // last accepted seq and arrival time per key
+
+// UDP socket to send the force byte back to the proxy
+static int force_fd;
+static struct sockaddr_in force_addr;
 
 static void bl_set(int s) {
   if (bl_state == s) return;
@@ -322,12 +331,17 @@ static void rx_frame(int bus, const struct can_frame *f) {
   if (crc8(f->data, 7) != f->data[7]) return;            
 
   uint32_t id = f->can_id & CAN_SFF_MASK;
-  int peer = -1;
-  if (id == ID_HB_N2) peer = 0;
-  else if (id == ID_HB_N3) peer = 1;
+  int peer = -1; // where the HB is coming from
+  int key; // which dedup slot this frame belongs to
+  if (id == ID_HB_N2) { peer = 0; key = K_HB2; }
+  else if (id == ID_HB_N3) { peer = 1; key = K_HB3; }
   else if (id == ID_FAULT) {
-    if (f->data[1] == 1) return; // FAULT from zone 1 is us (a relay echoed it back)
-  } else if (id != ID_FORCE) return;
+    // each reporter has its own slot, so two zones faulting at once don't hide each other
+    if (f->data[1] == 2) key = K_FAULT2;
+    else if (f->data[1] == 3) key = K_FAULT3;
+    else return; // 1 = us (a relay echoed it back), anything else is garbage
+  } else if (id == ID_FORCE) key = K_FORCE;
+  else return;
 
   // note when we heard it, before dedup, so a duplicate still shows the bus is alive
   pthread_mutex_lock(&state_lock);
@@ -335,11 +349,30 @@ static void rx_frame(int bus, const struct can_frame *f) {
   if (peer >= 0) hb_seen[bus][peer] = now;
   pthread_mutex_unlock(&state_lock);
 
+  // dedup logic
+  uint8_t seq = f->data[0] & 0x0F;
+  int dup = ((dd[key].t != INT64_MIN) && (dd[key].seq == seq) && ((now - dd[key].t) < DEDUP_MS * NS_PER_MS));
+  if (!dup) {
+    dd[key].seq = seq;
+    dd[key].t = now;
+  }
+
 #if RX_DEBUG
-  printf("rx bus%c id=0x%03X seq=%u data=%02X %02X %02X %02X %02X %02X %02X\n", 'A' + bus,
-         (unsigned) id, f->data[0] & 0x0F, f->data[1], f->data[2], f->data[3], f->data[4],
-         f->data[5], f->data[6], f->data[7]);
+  printf("rx bus%c id=0x%03X seq=%u %s data=%02X %02X %02X %02X %02X %02X %02X\n", 'A' + bus,
+         (unsigned) id, seq, dup ? "dup" : "new", f->data[1], f->data[2], f->data[3],
+         f->data[4], f->data[5], f->data[6], f->data[7]);
 #endif
+  if (dup) return;
+
+  if (id == ID_FAULT) {
+    pthread_mutex_lock(&state_lock);
+    fault_time = now;
+    fault_zone = f->data[1];
+    pthread_mutex_unlock(&state_lock);
+  } else if (id == ID_FORCE) {
+    int8_t force = (int8_t) f->data[1];
+    sendto(force_fd, &force, 1, MSG_DONTWAIT, (struct sockaddr *) &force_addr, sizeof(force_addr));
+  }
 }
 
 // FORCE_RX thread: reads both buses (HB, FAULT, FORCE)
@@ -383,9 +416,20 @@ int main(int argc, char **argv) {
   can_fd[1] = can_open(ifname[1]);
 
   for (int b = 0; b < 2; b++) {
-    hb_seen[b][0] = hb_seen[b][1] = NEVER;
+    hb_seen[b][0] = hb_seen[b][1] = INT64_MIN;
     peer_frame[b] = now_ns(); // start of a short grace period (used for the DEG logic later)
   }
+
+  for (int k = 0; k < K_N; k++) dd[k].t = INT64_MIN;
+
+  force_fd = socket(AF_INET, SOCK_DGRAM, 0);
+  if (force_fd < 0) {
+    perror("failed to create force socket");
+    exit(EXIT_FAILURE);
+  }
+  force_addr.sin_family = AF_INET;
+  force_addr.sin_port = htons(S_PORT);
+  force_addr.sin_addr.s_addr = inet_addr(REMOTE_HOST);
 
   pthread_t hb_tid, blink_tid, rx_tid;
   pthread_create(&hb_tid, NULL, hb_thread, NULL);
@@ -438,7 +482,6 @@ int main(int argc, char **argv) {
     if (state.lRz < -32768) state.lRz = -32768;
 #endif
 
-    // ---- step 3: turn wheel state into the CTRL fields ----
     // steering: the raw 16-bit value, 0 = center, negative = left
     int steer = clamp(state.lX, -32768, 32767);
     // throttle: wheel says negative = pressed. Flip it, then squeeze 0..32767 into 0..255.
@@ -454,7 +497,7 @@ int main(int argc, char **argv) {
     if (state.rgbButtons[2]) buttons |= BTN_X;
     if (state.rgbButtons[3]) buttons |= BTN_Y;
 
-    // ---- step 4: build and send CTRL ----
+    // build n send ctrl
     uint8_t data[8];
     data[0] = ctrl_seq++ & 0x0F;       // sequence number (top 4 bits stay 0)
     data[1] = (steer >> 8) & 0xFF;     // steer high byte
@@ -469,7 +512,7 @@ int main(int argc, char **argv) {
     can_send_both(ID_CTRL, data);
     gpio_put(PIN_CMD_TX, 0);
 
-    // ---- blinker and test button. After the CTRL send, so they never delay it. ----
+    // blinker n tst btn
     int angle = (steer + 32768) * 900 / 65535;   // 0 = full left, 450 = center, 900 = full right
     int left = state.rgbButtons[5] != 0
     int right = state.rgbButtons[4] != 0;
