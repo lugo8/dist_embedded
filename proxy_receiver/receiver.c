@@ -1,9 +1,3 @@
-// Lab 3, N1 (Raspberry Pi), using the Lab 2 message catalog (can_protocol.h):
-// ZONE_CTRL, HB_COCKPIT and BLINKER out on can0 and can1; HB_STEERING, HB_DRIVETRAIN and FORCE_FEEDBACK in.
-//
-// Build: gcc -O2 -Wall receiver.c -o proxy_receiver
-// Run:   ./proxy_receiver [iface_A iface_B]     (default can0 can1; vcan0 vcan1 works for testing)
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -223,7 +217,7 @@ static int bl_phase = 1; // 1 for LED on
 static int bl_dirty = 1; // 1 = state changed, a BLINKER must go out (starts 1: announce it)
 static int bl_passed = 0; // wheel went past the threshold; turn cancels when it comes back
 static int64_t bl_next_toggle; // when the next phase flip is due
-static int64_t bl_last_tx = INT64_MIN;
+static int64_t bl_last_tx = -BLINK_MIN_GAP_MS * NS_PER_MS; // so the first send is not held back (INT64_MIN would overflow in now - bl_last_tx)
 
 static int64_t bl_half_ns(void) {
   return (bl_state == BLINK_HAZARD ? BLINK_HAZARD_HALF_MS : BLINK_TURN_HALF_MS) * NS_PER_MS;
