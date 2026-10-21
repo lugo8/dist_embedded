@@ -38,6 +38,8 @@
 #define PIN_CMD_TX 27
 #define PIN_TX_A   5
 #define PIN_TX_B   6
+#define PIN_DEG_A  13  // degraded-bus LEDs
+#define PIN_DEG_B  26
 
 #define ID_CTRL  0x010
 #define ID_FAULT 0x020
@@ -57,9 +59,12 @@
 #define DOUBLE_PRESS_MS   500
 #define LEFT_THRESHOLD    299   // wheel angle 0..900, from Lab 2 blinker.c
 #define RIGHT_THRESHOLD   601
+#define HB_MISS_MS        55    // a zone/bus is dead after this long with no heartbeat (3 missed + margin)
+#define MON_TICK_MS       2     // how often HB_MON checks (must be <= 5 so DEG lights within 60 ms)
+#define PEER_HOLD_MS      60    // stay in error at least this long after a FAULT
 
 enum { B_OFF = 0, B_LEFT, B_RIGHT, B_HAZARD };       // BLINK state byte
-enum { Z_NORMAL = 0, Z_LINK_LOST = 1, Z_SELF_TEST = 2 }; // zone_state values used so far
+enum { Z_NORMAL = 0, Z_LINK_LOST = 1, Z_SELF_TEST = 2, Z_PEER_ERROR = 4 }; // zone_state byte (3 = BAD_CMD, STM only)
 #define FAULT_TEST_BTN 1                             // FAULT reason
 
 // button byte bits 
@@ -86,8 +91,8 @@ static void gpio_init(void) {
   }
   gpio = m;
 
-  int pins[] = {PIN_UDP_RX, PIN_CMD_TX, PIN_TX_A, PIN_TX_B}; // GPIO pins init
-  for (int i = 0; i < 4; i++) {
+  int pins[] = {PIN_UDP_RX, PIN_CMD_TX, PIN_TX_A, PIN_TX_B, PIN_DEG_A, PIN_DEG_B}; // GPIO pins init
+  for (int i = 0; i < (int) (sizeof(pins) / sizeof(pins[0])); i++) {
     int p = pins[i];
     // each pin has a 3-bit mode field, 10 pins per register. Mode 1 = output.
     gpio[p / 10] = (gpio[p / 10] & ~(7 << ((p % 10) * 3))) | (1 << ((p % 10) * 3));
@@ -201,14 +206,19 @@ static void sleep_until(int64_t deadline_ns) {
 // STATE TRACKING
 static pthread_mutex_t state_lock = PTHREAD_MUTEX_INITIALIZER;
 
-// real power-up state should be Z_LINK_LOST w hazards
-static uint8_t zone_state = Z_NORMAL; // Z_NORMAL, Z_LINK_LOST, Z_SELF_TEST
-static uint8_t health = 0; // bit0 = bus A degraded, bit1 = bus B 
+// ZONE STATE: we power up in error (hazards on) until the peers' heartbeats and a UDP update show up
+static uint8_t zone_state = Z_LINK_LOST; // what we report in HB: Z_NORMAL, Z_LINK_LOST, Z_SELF_TEST, Z_PEER_ERROR
+static uint8_t health = 0; // bit0 = bus A degraded, bit1 = bus B
 static int self_test = 0; // set while the wheel test button has failed this zone
+static int in_err = 1;       // are we in the error state
+static int cold = 1;         // 1 until the first time we leave error
+static int fault_cause = 0;  // 1 if a FAULT started this error (so the state is PEER_ERROR)
+static int udp_valid = 0;    // a valid UDP update arrived since the error began
+static int64_t hold_until = 0; // earliest time we may leave error after a FAULT
 
 // BLINKERS
-static int bl_state = B_OFF; // B_OFF, B_LEFT, B_RIGHT, B_HAZARD,
-static int bl_phase = 0; // 1 = lamps on
+static int bl_state = B_HAZARD; // B_OFF, B_LEFT, B_RIGHT, B_HAZARD (starts in hazard: we start in error)
+static int bl_phase = 1; // 1 = lamps on
 static int bl_dirty = 1; // 1 = state changed, a BLINK must go out (starts 1: announce OFF)
 static int bl_passed = 0; // wheel went past the threshold; turn cancels when it comes back
 static int64_t bl_next_toggle; // when the 500 ms phase flip is due
@@ -217,8 +227,6 @@ static int64_t bl_last_tx = INT64_MIN;
 // RX TRACKING 
 static int64_t hb_seen[2][2]; // [bus][peer], peer 0 = N2, 1 = N3. when we last heard its HB
 static int64_t peer_frame[2]; // [bus] when we last heard ANY peer frame on that bus
-static int64_t fault_time = INT64_MIN; // when the last (new) FAULT arrived, from zone fault_zone
-static int fault_zone = 0;
 
 #define DEDUP_MS 100
 enum { K_HB2, K_HB3, K_FAULT2, K_FAULT3, K_FORCE, K_N };
@@ -252,6 +260,19 @@ static void bl_steer(int angle) {
   } else if (bl_state == B_RIGHT) {
     if (angle > RIGHT_THRESHOLD) bl_passed = 1;
     else if (bl_passed) bl_set(B_OFF);
+  }
+}
+
+// enter err state
+static void enter_error(int from_fault, int64_t now) {
+  if (!in_err) {
+    in_err = 1;
+    udp_valid = 0;  // need a fresh valid UDP update before we may leave again
+    bl_hazard(1);
+  }
+  if (from_fault) { // start 60ms min hold
+    fault_cause = 1;
+    hold_until = now + PEER_HOLD_MS * NS_PER_MS;
   }
 }
 
@@ -366,8 +387,7 @@ static void rx_frame(int bus, const struct can_frame *f) {
 
   if (id == ID_FAULT) {
     pthread_mutex_lock(&state_lock);
-    fault_time = now;
-    fault_zone = f->data[1];
+    enter_error(1, now);
     pthread_mutex_unlock(&state_lock);
   } else if (id == ID_FORCE) {
     int8_t force = (int8_t) f->data[1];
@@ -397,6 +417,67 @@ static void *rx_thread(void *arg) {
   return NULL;
 }
 
+// monitor HBs
+static int recent(int64_t t, int64_t now) {
+  return (t != INT64_MIN) && ((now - t) < HB_MISS_MS * NS_PER_MS);
+}
+
+// run every 2ms to monitor the states 
+static void *mon_thread(void *arg) {
+  (void) arg;
+  int64_t next = now_ns();
+  int shown_state = -1;
+  int shown_deg[2] = {0, 0};
+
+  while (1) {
+    next += MON_TICK_MS * NS_PER_MS;
+    sleep_until(next);
+    int64_t now = now_ns();
+
+    pthread_mutex_lock(&state_lock);
+
+    // check if zone is alive
+    int alive_n2 = recent(hb_seen[0][0], now) || recent(hb_seen[1][0], now);
+    int alive_n3 = recent(hb_seen[0][1], now) || recent(hb_seen[1][1], now);
+    int all_alive = alive_n2 && alive_n3;
+
+    // a bus is degraded if no peer frame at all came in on it recently. Clears on the next frame.
+    int deg[2];
+    for (int b = 0; b < 2; b++) deg[b] = !recent(peer_frame[b], now);
+    health = (deg[0] ? 1 : 0) | (deg[1] ? 2 : 0);
+
+    // enter: a peer went silent on both buses
+    if (!in_err && !all_alive) enter_error(0, now);
+
+    // exit: hold over, no local fault, both peers alive, valid UDP update since the error began
+    if (in_err && !self_test && now >= hold_until && all_alive && udp_valid) {
+      in_err = 0;
+      cold = 0;
+      fault_cause = 0;
+      bl_hazard(0);
+    }
+
+    // the state we report in HB
+    if (!in_err) zone_state = Z_NORMAL;
+    else if (self_test) zone_state = Z_SELF_TEST;
+    else if (cold || !all_alive || !fault_cause) zone_state = Z_LINK_LOST;
+    else zone_state = Z_PEER_ERROR;
+
+    int st = zone_state;
+    pthread_mutex_unlock(&state_lock);
+
+    gpio_put(PIN_DEG_A, deg[0]);
+    gpio_put(PIN_DEG_B, deg[1]);
+
+    if (st != shown_state || deg[0] != shown_deg[0] || deg[1] != shown_deg[1]) { // print on change only
+      printf("zone_state=%d degA=%d degB=%d\n", st, deg[0], deg[1]);
+      shown_state = st;
+      shown_deg[0] = deg[0];
+      shown_deg[1] = deg[1];
+    }
+  }
+  return NULL;
+}
 
 int main(int argc, char **argv) {
   const char *ifname[2] = {"can0", "can1"};
@@ -431,10 +512,11 @@ int main(int argc, char **argv) {
   force_addr.sin_port = htons(S_PORT);
   force_addr.sin_addr.s_addr = inet_addr(REMOTE_HOST);
 
-  pthread_t hb_tid, blink_tid, rx_tid;
+  pthread_t hb_tid, blink_tid, rx_tid, mon_tid;
   pthread_create(&hb_tid, NULL, hb_thread, NULL);
   pthread_create(&blink_tid, NULL, blink_thread, NULL);
   pthread_create(&rx_tid, NULL, rx_thread, NULL);
+  pthread_create(&mon_tid, NULL, mon_thread, NULL);
 
   // UDP socket for the wheel state from the proxy
   int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -456,7 +538,7 @@ int main(int argc, char **argv) {
   DIJOYSTATE2_t state;
 
   // remembered between updates (for edge detection on the buttons)
-  int prev_left = 0, 
+  int prev_left = 0;
   int prev_right = 0;
   int btn_level = 0; // was the B button down at the last update
   int64_t btn_change = -DEBOUNCE_MS * NS_PER_MS; // when it last changed
@@ -514,13 +596,14 @@ int main(int argc, char **argv) {
 
     // blinker n tst btn
     int angle = (steer + 32768) * 900 / 65535;   // 0 = full left, 450 = center, 900 = full right
-    int left = state.rgbButtons[5] != 0
+    int left = state.rgbButtons[5] != 0;
     int right = state.rgbButtons[4] != 0;
     int b_down = state.rgbButtons[1] != 0;
     int64_t now = now_ns();
     int send_fault = 0;
 
     pthread_mutex_lock(&state_lock);
+    udp_valid = 1; // set first: if this very update enters error below, it gets cleared again
     bl_steer(angle);
     if (left && !prev_left) bl_left(); // act on the press (the edge), not on holding
     if (right && !prev_right) bl_right();
@@ -533,13 +616,10 @@ int main(int argc, char **argv) {
       btn_change = now;
       if (b_down && steady) { // a real press
         if (self_test && (now - last_press) <= DOUBLE_PRESS_MS * NS_PER_MS) {
-          self_test = 0; // double press: back to normal
-          zone_state = Z_NORMAL; // TEMP, the real exit rule comes in step 10
-          bl_hazard(0);
+          self_test = 0; // double press: cause cleared, HB restarts. HB_MON decides when we leave error.
         } else {
-          self_test = 1; // single press: fail this zone now
-          zone_state = Z_SELF_TEST;
-          bl_hazard(1);
+          self_test = 1; // single press: fail this zone now (HB_MON reports the state, HB goes silent)
+          enter_error(1, now);
           last_press = now;
           send_fault = 1;
         }
