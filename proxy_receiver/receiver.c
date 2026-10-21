@@ -229,8 +229,8 @@ static void rx_frame(int bus, const struct can_frame *f) {
   int peer = -1; // where the HB is coming from
   int key = -1; // which dedup slot this frame belongs to
   uint8_t seq = 0;
-  struct heartbeat hb;
-  struct force_feedback ff;
+  struct heartbeat hb = {0};
+  struct force_feedback ff = {0};
   // decode also drops frames with the wrong length or a reserved bit set
   if (id == CAN_ID_HB_STEERING) {
     if (!hb_decode(f->data, f->can_dlc, &hb)) return;
