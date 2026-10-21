@@ -44,7 +44,9 @@
 #define PIN_DEG_A  13  // degraded-bus LEDs
 #define PIN_DEG_B  26
 
-#define RX_DEBUG 1  // SET TO PRINT ALL FRAMES
+#define RX_DEBUG 1  // print every frame we receive (and why a frame was rejected)
+#define TX_DEBUG 1  // print every frame we send, per bus
+// printing slows the threads: set both to 0 for timing measurements
 
 #define HB_PERIOD_MS      20
 #define DEBOUNCE_MS       20    // test button (same as Lab 2)
@@ -132,6 +134,8 @@ static uint8_t ctrl_seq = 0, hb_seq = 0, blink_seq = 0;
 // thread 2: BLINKER
 static pthread_mutex_t tx_lock = PTHREAD_MUTEX_INITIALIZER;
 
+static void dbg_frame(const char *dir, int bus, uint32_t id, const uint8_t *data, int dlc, const char *tag);
+
 // send frame on both buses. CAN hardware adds and checks the CRC, so the payload carries none.
 static void can_send_both(uint32_t id, const uint8_t *data, uint8_t dlc) {
   struct can_frame f = {0};
@@ -139,13 +143,22 @@ static void can_send_both(uint32_t id, const uint8_t *data, uint8_t dlc) {
   f.can_dlc = dlc;
   memcpy(f.data, data, dlc);
 
+  int err[2] = {0, 0};
   pthread_mutex_lock(&tx_lock);
   for (int bus = 0; bus < 2; bus++) {
     gpio_put(tx_pin[bus], 1);
-    write(can_fd[bus], &f, sizeof(f)); // if it fails (bus dead / queue full) we just move on
+    if (write(can_fd[bus], &f, sizeof(f)) < 0) err[bus] = errno; // bus dead / queue full: we just move on
     gpio_put(tx_pin[bus], 0);
   }
   pthread_mutex_unlock(&tx_lock);
+
+#if TX_DEBUG
+  for (int bus = 0; bus < 2; bus++) {
+    dbg_frame("tx", bus, id, f.data, dlc, err[bus] ? strerror(err[bus]) : "queued");
+  }
+#else
+  (void) err;
+#endif
 }
 
 static int clamp(int v, int lo, int hi) {
@@ -168,6 +181,19 @@ static void sleep_until(int64_t deadline_ns) {
     .tv_nsec = deadline_ns % NS_PER_SEC,
   };
   while (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t, NULL) == EINTR) {}
+}
+
+// one line per frame, built first so lines from different threads don't interleave
+__attribute__((unused))
+static void dbg_frame(const char *dir, int bus, uint32_t id, const uint8_t *data, int dlc, const char *tag) {
+  char buf[192];
+  int n = snprintf(buf, sizeof(buf), "%10.3f %s bus%c id=0x%03X dlc=%d data=", now_ns() / 1e6, dir,
+                   'A' + bus, (unsigned) id, dlc);
+  for (int i = 0; i < dlc && i < 8 && n < (int) sizeof(buf) - 4; i++) {
+    n += snprintf(buf + n, sizeof(buf) - n, "%02X ", data[i]);
+  }
+  snprintf(buf + n, sizeof(buf) - n, "%s\n", tag);
+  fputs(buf, stdout);
 }
 
 // STATE TRACKING
@@ -307,6 +333,14 @@ static void *blink_thread(void *arg) {
 }
 
 ////////////////// RX //////////////////
+static void rx_reject(int bus, const struct can_frame *f, uint32_t id) {
+#if RX_DEBUG
+  dbg_frame("rx", bus, id, f->data, f->can_dlc, "DROPPED (invalid: unknown id, wrong dlc, or reserved bits set)");
+#else
+  (void) bus; (void) f; (void) id;
+#endif
+}
+
 static void rx_frame(int bus, const struct can_frame *f) {
   int64_t now = now_ns();
 
@@ -320,15 +354,15 @@ static void rx_frame(int bus, const struct can_frame *f) {
   struct force_feedback ff = {0};
   // decode also drops frames with the wrong length or a reserved bit set
   if (id == CAN_ID_HB_STEERING) {
-    if (!hb_decode(f->data, f->can_dlc, &hb)) return;
+    if (!hb_decode(f->data, f->can_dlc, &hb)) { rx_reject(bus, f, id); return; }
     peer = 0; key = K_HB2; seq = hb.seq;
   } else if (id == CAN_ID_HB_DRIVETRAIN) {
-    if (!hb_decode(f->data, f->can_dlc, &hb)) return;
+    if (!hb_decode(f->data, f->can_dlc, &hb)) { rx_reject(bus, f, id); return; }
     peer = 1; key = K_HB3; seq = hb.seq;
   } else if (id == CAN_ID_FORCE_FEEDBACK) {
-    if (!force_decode(f->data, f->can_dlc, &ff)) return;
+    if (!force_decode(f->data, f->can_dlc, &ff)) { rx_reject(bus, f, id); return; }
     key = K_FORCE; seq = ff.seq;
-  } else return;
+  } else { rx_reject(bus, f, id); return; }
 
   // note when we heard it, before dedup, so a duplicate still shows the bus is alive
   pthread_mutex_lock(&state_lock);
@@ -344,8 +378,7 @@ static void rx_frame(int bus, const struct can_frame *f) {
   }
 
 #if RX_DEBUG
-  printf("rx bus%c id=0x%03X dlc=%u seq=%u %s data=%02X %02X %02X\n", 'A' + bus,
-         (unsigned) id, f->can_dlc, seq, dup ? "dup" : "new", f->data[0], f->data[1], f->data[2]);
+  dbg_frame("rx", bus, id, f->data, f->can_dlc, dup ? "DROPPED (duplicate of a frame already accepted)" : "ACCEPTED");
 #endif
   if (dup) return;
 
