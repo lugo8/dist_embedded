@@ -12,6 +12,7 @@
 #include <time.h>
 #include <errno.h>
 #include <pthread.h>
+#include <poll.h>
 #include <net/if.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -41,7 +42,12 @@
 #define ID_CTRL  0x010
 #define ID_FAULT 0x020
 #define ID_HB_N1 0x100
+#define ID_HB_N2 0x101
+#define ID_HB_N3 0x102
 #define ID_BLINK 0x200
+#define ID_FORCE 0x300
+
+#define RX_DEBUG 1  // SET TO PRINT ALL FRAMES
 
 #define HB_PERIOD_MS      20
 #define BLINK_TICK_MS     2     // how often the blink thread checks if it has to send
@@ -64,7 +70,6 @@ enum { Z_NORMAL = 0, Z_LINK_LOST = 1, Z_SELF_TEST = 2 }; // zone_state values us
 #define BTN_Y     0x20
 #define BTN_LEFT  0x80
 
-// ---------- test points ----------
 static volatile uint32_t *gpio;
 
 static void gpio_init(void) {
@@ -127,6 +132,14 @@ static int can_open(const char *ifname) {
     perror("bind(can)");
     exit(EXIT_FAILURE);
   }
+
+  // only let the kernel hand us the IDs we use (standard frames only)
+  // everything else on the bus never wakes us up
+  uint32_t mask = CAN_SFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG;
+  struct can_filter filters[] = {
+    {ID_FAULT, mask}, {ID_HB_N2, mask}, {ID_HB_N3, mask}, {ID_FORCE, mask},
+  };
+  setsockopt(fd, SOL_CAN_RAW, CAN_RAW_FILTER, filters, sizeof(filters));
 
   // Non-blocking: if a bus is dead and its queue is full, write() fails right away
   // instead of freezing us. A dead bus must not stop the other bus.
@@ -200,6 +213,11 @@ static int bl_dirty = 1; // 1 = state changed, a BLINK must go out (starts 1: an
 static int bl_passed = 0; // wheel went past the threshold; turn cancels when it comes back
 static int64_t bl_next_toggle; // when the 500 ms phase flip is due
 static int64_t bl_last_tx = INT64_MIN;
+
+// RX TRACKING 
+#define NEVER INT64_MIN
+static int64_t hb_seen[2][2]; // [bus][peer], peer 0 = N2, 1 = N3. when we last heard its HB
+static int64_t peer_frame[2]; // [bus] when we last heard ANY peer frame on that bus
 
 static void bl_set(int s) {
   if (bl_state == s) return;
@@ -295,6 +313,58 @@ static void *blink_thread(void *arg) {
   return NULL;
 }
 
+////////////////// RX //////////////////
+static void rx_frame(int bus, const struct can_frame *f) {
+  int64_t now = now_ns();
+
+  if (f->can_dlc != 8) return;
+  if (f->can_id & (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_ERR_FLAG)) return; // standard data frames only
+  if (crc8(f->data, 7) != f->data[7]) return;            
+
+  uint32_t id = f->can_id & CAN_SFF_MASK;
+  int peer = -1;
+  if (id == ID_HB_N2) peer = 0;
+  else if (id == ID_HB_N3) peer = 1;
+  else if (id == ID_FAULT) {
+    if (f->data[1] == 1) return; // FAULT from zone 1 is us (a relay echoed it back)
+  } else if (id != ID_FORCE) return;
+
+  // note when we heard it, before dedup, so a duplicate still shows the bus is alive
+  pthread_mutex_lock(&state_lock);
+  peer_frame[bus] = now;
+  if (peer >= 0) hb_seen[bus][peer] = now;
+  pthread_mutex_unlock(&state_lock);
+
+#if RX_DEBUG
+  printf("rx bus%c id=0x%03X seq=%u data=%02X %02X %02X %02X %02X %02X %02X\n", 'A' + bus,
+         (unsigned) id, f->data[0] & 0x0F, f->data[1], f->data[2], f->data[3], f->data[4],
+         f->data[5], f->data[6], f->data[7]);
+#endif
+}
+
+// FORCE_RX thread: reads both buses (HB, FAULT, FORCE)
+static void *rx_thread(void *arg) {
+  (void) arg;
+  struct pollfd pfd[2] = {{.fd = can_fd[0], .events = POLLIN}, {.fd = can_fd[1], .events = POLLIN}};
+
+  while (1) {
+    poll(pfd, 2, -1); // sleep until a frame shows up on either bus
+    for (int bus = 0; bus < 2; bus++) {
+      if (pfd[bus].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+        sleep_until(now_ns() + NS_PER_MS);
+        continue;
+      }
+      struct can_frame f;
+      // read everything waiting
+      while (read(can_fd[bus], &f, sizeof(f)) == (ssize_t) sizeof(f)) { 
+        rx_frame(bus, &f);
+      }
+    }
+  }
+  return NULL;
+}
+
+
 int main(int argc, char **argv) {
   const char *ifname[2] = {"can0", "can1"};
   if (argc > 2) {
@@ -312,9 +382,15 @@ int main(int argc, char **argv) {
   can_fd[0] = can_open(ifname[0]);
   can_fd[1] = can_open(ifname[1]);
 
-  pthread_t hb_tid, blink_tid;
+  for (int b = 0; b < 2; b++) {
+    hb_seen[b][0] = hb_seen[b][1] = NEVER;
+    peer_frame[b] = now_ns(); // start of a short grace period (used for the DEG logic later)
+  }
+
+  pthread_t hb_tid, blink_tid, rx_tid;
   pthread_create(&hb_tid, NULL, hb_thread, NULL);
   pthread_create(&blink_tid, NULL, blink_thread, NULL);
+  pthread_create(&rx_tid, NULL, rx_thread, NULL);
 
   // UDP socket for the wheel state from the proxy
   int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
