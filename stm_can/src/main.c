@@ -38,6 +38,10 @@ static void send_both(uint32_t id, uint8_t flags, const uint8_t payload[7])
 		if (rc) {
 			printk("can_send bus %c failed: %d\n", 'A' + i, rc);
 		}
+		else {
+			printk("can_send bus %c queued id=0x%03x seq=%u\n",
+			       'A' + i, f.id, f.data[0] & 0x0F);
+		}
 	}
 	seq = (seq + 1) & 0x0F;
 }
@@ -57,7 +61,7 @@ static int can_bringup(int i)
 	}
 
 	/* Uncomment to test SPI wiring with no bus attached at all: */
-	/* can_set_mode(dev, CAN_MODE_LOOPBACK); */
+	//can_set_mode(dev, CAN_MODE_LOOPBACK); 
 
 	rc = can_start(dev);
 	if (rc) {
@@ -88,6 +92,7 @@ int main(void)
 	uint8_t payload[7] = { 0 };
 
 	while (1) {
+		printk("Sending heartbeat seq=%u\n", seq);
 		send_both(ID_HB_N2, 0, payload);
 		payload[0]++;
 
