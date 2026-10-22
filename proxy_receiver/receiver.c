@@ -38,8 +38,8 @@
 #define PIN_DEG_A  13  // degraded-bus LEDs
 #define PIN_DEG_B  26
 
-#define RX_DEBUG 1  // print every frame we receive (and why a frame was rejected)
-#define TX_DEBUG 1  // print every frame we send, per bus
+#define RX_DEBUG 0  // print every frame we receive (and why a frame was rejected)
+#define TX_DEBUG 0  // print every frame we send, per bus
 // printing slows the threads: set both to 0 for timing measurements
 
 #define HB_PERIOD_MS      20
@@ -525,6 +525,10 @@ int main(int argc, char **argv) {
       continue;
     }
     memcpy(&state, pkt + 4, sizeof(state));
+
+    printf("btns:");
+    for (int i = 0; i < 12; i++) printf("%d", state.rgbButtons[i] != 0);
+    printf("\n");
 
 #if WHEEL_ON_MAC
     // Mac reports pedals as 0 (no press) .. 32767 (fully down); zone_1 expects
