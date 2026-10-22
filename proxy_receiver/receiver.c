@@ -36,7 +36,7 @@
 #define PIN_TX_A   5
 #define PIN_TX_B   6
 #define PIN_DEG_A  13  // degraded-bus LEDs
-#define PIN_DEG_B  26
+#define PIN_DEG_B  16  // not 26: that's the can0 MCP2515 interrupt line (config.txt)
 
 #define RX_DEBUG 0  // print every frame we receive (and why a frame was rejected)
 #define TX_DEBUG 0  // print every frame we send, per bus
