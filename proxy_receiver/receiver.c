@@ -449,7 +449,7 @@ static void *mon_thread(void *arg) {
     gpio_put(PIN_DEG_B, deg[1]);
 
     if (st != shown_state || deg[0] != shown_deg[0] || deg[1] != shown_deg[1]) { // print on change only
-      printf("state=%d degA=%d degB=%d\n", st, deg[0], deg[1]);
+      // printf("state=%d degA=%d degB=%d\n", st, deg[0], deg[1]);
       shown_state = st;
       shown_deg[0] = deg[0];
       shown_deg[1] = deg[1];
@@ -526,9 +526,9 @@ int main(int argc, char **argv) {
     }
     memcpy(&state, pkt + 4, sizeof(state));
 
-    printf("btns:");
-    for (int i = 0; i < 12; i++) printf("%d", state.rgbButtons[i] != 0);
-    printf("\n");
+    // printf("btns:");
+    // for (int i = 0; i < 12; i++) printf("%d", state.rgbButtons[i] != 0);
+    // printf("\n");
 
 #if WHEEL_ON_MAC
     // Mac reports pedals as 0 (no press) .. 32767 (fully down); zone_1 expects
