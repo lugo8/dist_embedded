@@ -4,7 +4,7 @@
 #include <zephyr/sys/printk.h>
 #include <string.h>
 
-#define ID_HB_N2 0x101   /* change per node */
+#define ID_HB_N2 0x04   /* change per node */
 
 static const struct device *const can_dev[2] = {
 	DEVICE_DT_GET(DT_NODELABEL(can_a)),
