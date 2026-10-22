@@ -58,19 +58,17 @@ struct blinker_msg {
 	uint8_t seq;
 };
 
-/* ZONE_CTRL: B0 buttons | B1,B2 brake | B4,B3 throttle | B6,B5 steering | B7 seq.
- * ASSUMPTION: "B1,B2" / "B4,B3" / "B6,B5" are listed most-significant byte first,
- * which makes brake big-endian and throttle/steering little-endian as written.
- * If the STM side reads them differently, change only ctrl_encode. */
+/* ZONE_CTRL: B0 buttons | B1,B2 brake | B3,B4 throttle | B5,B6 steering | B7 seq.
+ * All 16-bit fields go out MSB first (big-endian). */
 static inline void ctrl_encode(const struct zone_ctrl *c, uint8_t d[CAN_DLC_ZONE_CTRL])
 {
 	d[0] = c->buttons;
 	d[1] = (uint8_t)((uint16_t)c->brake >> 8);
 	d[2] = (uint8_t)((uint16_t)c->brake & 0xFF);
-	d[4] = (uint8_t)((uint16_t)c->throttle >> 8);
-	d[3] = (uint8_t)((uint16_t)c->throttle & 0xFF);
-	d[6] = (uint8_t)((uint16_t)c->steering >> 8);
-	d[5] = (uint8_t)((uint16_t)c->steering & 0xFF);
+	d[3] = (uint8_t)((uint16_t)c->throttle >> 8);
+	d[4] = (uint8_t)((uint16_t)c->throttle & 0xFF);
+	d[5] = (uint8_t)((uint16_t)c->steering >> 8);
+	d[6] = (uint8_t)((uint16_t)c->steering & 0xFF);
 	d[7] = c->seq;
 }
 

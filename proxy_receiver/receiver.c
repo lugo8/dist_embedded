@@ -23,12 +23,12 @@
 #define LOCAL_HOST "172.26.166.20" // IP of local interface
 #define R_PORT 8000                // wheel state comes in here
 
-#define REMOTE_HOST "172.26.76.97" // force goes back here
+#define REMOTE_HOST "172.26.4.165" // force goes back here
 #define S_PORT 8001
 #define MAX_FORCE_VAL 100          // force byte sent to the proxy is clamped to +/- this
 
 // set to 1 when using MAC
-#define WHEEL_ON_MAC 0
+#define WHEEL_ON_MAC 1
 
 // GPIO settings
 #define PIN_UDP_RX 22
@@ -36,10 +36,10 @@
 #define PIN_TX_A   5
 #define PIN_TX_B   6
 #define PIN_DEG_A  13  // degraded-bus LEDs
-#define PIN_DEG_B  26
+#define PIN_DEG_B  16  // not 26: that's the can0 MCP2515 interrupt line (config.txt)
 
-#define RX_DEBUG 1  // print every frame we receive (and why a frame was rejected)
-#define TX_DEBUG 1  // print every frame we send, per bus
+#define RX_DEBUG 0  // print every frame we receive (and why a frame was rejected)
+#define TX_DEBUG 0  // print every frame we send, per bus
 // printing slows the threads: set both to 0 for timing measurements
 
 #define HB_PERIOD_MS      20
@@ -449,7 +449,7 @@ static void *mon_thread(void *arg) {
     gpio_put(PIN_DEG_B, deg[1]);
 
     if (st != shown_state || deg[0] != shown_deg[0] || deg[1] != shown_deg[1]) { // print on change only
-      printf("state=%d degA=%d degB=%d\n", st, deg[0], deg[1]);
+      // printf("state=%d degA=%d degB=%d\n", st, deg[0], deg[1]);
       shown_state = st;
       shown_deg[0] = deg[0];
       shown_deg[1] = deg[1];
@@ -526,15 +526,15 @@ int main(int argc, char **argv) {
     }
     memcpy(&state, pkt + 4, sizeof(state));
 
+    // printf("btns:");
+    // for (int i = 0; i < 12; i++) printf("%d", state.rgbButtons[i] != 0);
+    // printf("\n");
+
 #if WHEEL_ON_MAC
     // Mac reports pedals as 0 (no press) .. 32767 (fully down); zone_1 expects
-    // 32767 (no press) .. -32768 (fully down). Wheel range is already close enough.
-    state.lY  = 32767 - 2 * (int32_t) state.lY;
-    state.lRz = 32767 - 2 * (int32_t) state.lRz;
-    state.lX = 32767 - 2 * (int32_t) state.lX;
-    if (state.lX  < -32768) state.lX  = -32768;
-    if (state.lY  < -32768) state.lY  = -32768;
-    if (state.lRz < -32768) state.lRz = -32768;
+    // 32767 (no press) .. -32768 (fully down). Steering (-32767..32766) is already close enough.
+    state.lY  = 32767 - (int32_t) ((int64_t) clamp(state.lY, 0, 32767) * 65535 / 32767);
+    state.lRz = 32767 - (int32_t) ((int64_t) clamp(state.lRz, 0, 32767) * 65535 / 32767);
 #endif
 
     // axes go out raw, as in Lab 2: steering 0 = center, negative = left;
