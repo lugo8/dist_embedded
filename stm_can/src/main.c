@@ -39,8 +39,8 @@ static void send_both(uint32_t id, uint8_t flags, const uint8_t payload[7])
 			printk("can_send bus %c failed: %d\n", 'A' + i, rc);
 		}
 		else {
-			printk("can_send bus %c queued id=0x%03x seq=%u\n",
-			       'A' + i, f.id, f.data[0] & 0x0F);
+			//printk("can_send bus %c queued id=0x%03x seq=%u\n",
+			       //'A' + i, f.id, f.data[0] & 0x0F);
 		}
 	}
 	seq = (seq + 1) & 0x0F;
