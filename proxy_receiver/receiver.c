@@ -23,12 +23,12 @@
 #define LOCAL_HOST "172.26.166.20" // IP of local interface
 #define R_PORT 8000                // wheel state comes in here
 
-#define REMOTE_HOST "172.26.76.97" // force goes back here
+#define REMOTE_HOST "172.26.4.165" // force goes back here
 #define S_PORT 8001
 #define MAX_FORCE_VAL 100          // force byte sent to the proxy is clamped to +/- this
 
 // set to 1 when using MAC
-#define WHEEL_ON_MAC 0
+#define WHEEL_ON_MAC 1
 
 // GPIO settings
 #define PIN_UDP_RX 22
