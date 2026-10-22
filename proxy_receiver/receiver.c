@@ -528,13 +528,9 @@ int main(int argc, char **argv) {
 
 #if WHEEL_ON_MAC
     // Mac reports pedals as 0 (no press) .. 32767 (fully down); zone_1 expects
-    // 32767 (no press) .. -32768 (fully down). Wheel range is already close enough.
-    state.lY  = 32767 - 2 * (int32_t) state.lY;
-    state.lRz = 32767 - 2 * (int32_t) state.lRz;
-    state.lX = 32767 - 2 * (int32_t) state.lX;
-    if (state.lX  < -32768) state.lX  = -32768;
-    if (state.lY  < -32768) state.lY  = -32768;
-    if (state.lRz < -32768) state.lRz = -32768;
+    // 32767 (no press) .. -32768 (fully down). Steering (-32767..32766) is already close enough.
+    state.lY  = 32767 - (int32_t) ((int64_t) clamp(state.lY, 0, 32767) * 65535 / 32767);
+    state.lRz = 32767 - (int32_t) ((int64_t) clamp(state.lRz, 0, 32767) * 65535 / 32767);
 #endif
 
     // axes go out raw, as in Lab 2: steering 0 = center, negative = left;
