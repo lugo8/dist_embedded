@@ -5,11 +5,11 @@
 #define CAN_ID_ZONE_CTRL      0x01 // Cockpit -> Steering, Drivetrain
 #define CTRL_BTN_LEFT   7
 #define CTRL_BTN_Y      6
-#define CTRL_BTN_A      5
-#define CTRL_BTN_X      4
-#define CTRL_BTN_B      1
+#define CTRL_BTN_B      5
+#define CTRL_BTN_A      4
+#define CTRL_BTN_X      3
 #define CTRL_BTN_RIGHT  0
-#define CTRL_BTN_RESERVED_MASK 0x0C // bits 3 n 2
+#define CTRL_BTN_RESERVED_MASK 0x06 // bits 2 n 1
 
 #define CAN_ID_HB_COCKPIT     0x02 // Cockpit -> Steering, Drivetrain
 #define CAN_ID_HB_STEERING    0x03 // Steering -> Cockpit, Drivetrain

@@ -23,7 +23,7 @@
 #define LOCAL_HOST "172.26.166.20" // IP of local interface
 #define R_PORT 8000                // wheel state comes in here
 
-#define REMOTE_HOST "172.26.4.165" // force goes back here
+#define REMOTE_HOST "172.26.101.183" // force goes back here
 #define S_PORT 8001
 #define MAX_FORCE_VAL 100          // force byte sent to the proxy is clamped to +/- this
 
@@ -414,7 +414,6 @@ static void *mon_thread(void *arg) {
   (void) arg;
   int64_t next = now_ns();
   int shown_state = -1;
-  int shown_deg[2] = {0, 0};
 
   while (1) {
     next += MON_TICK_MS * NS_PER_MS;
@@ -443,16 +442,20 @@ static void *mon_thread(void *arg) {
     }
 
     int st = !in_err ? 0 : (self_test ? 2 : 1); // 0 = normal, 1 = error, 2 = self-test
+    int bs = bl_state;
+    int uv = udp_valid;
     pthread_mutex_unlock(&state_lock);
 
     gpio_put(PIN_DEG_A, deg[0]);
     gpio_put(PIN_DEG_B, deg[1]);
 
-    if (st != shown_state || deg[0] != shown_deg[0] || deg[1] != shown_deg[1]) { // print on change only
-      // printf("state=%d degA=%d degB=%d\n", st, deg[0], deg[1]);
-      shown_state = st;
-      shown_deg[0] = deg[0];
-      shown_deg[1] = deg[1];
+    int key = st | (bs << 2) | (alive_n2 << 4) | (alive_n3 << 5) | (uv << 6) | (deg[0] << 7) | (deg[1] << 8);
+    if (key != shown_state) { // print on change only
+      static const char *const st_name[] = {"NORMAL", "ERROR", "SELF_TEST"};
+      static const char *const bl_name[] = {"OFF", "LEFT", "RIGHT", "HAZARD"};
+      printf("%10.3f STATE %s blinker=%s n2=%d n3=%d udp=%d degA=%d degB=%d\n", now / 1e6, st_name[st],
+             bl_name[bs], alive_n2, alive_n3, uv, deg[0], deg[1]);
+      shown_state = key;
     }
   }
   return NULL;
@@ -523,6 +526,12 @@ int main(int argc, char **argv) {
     if (n != (ssize_t) sizeof(pkt)) { // wrong size: not a valid update, ignore it
       gpio_put(PIN_UDP_RX, 0);
       continue;
+    }
+    // A network burst leaves several updates queued. Only the newest matters, the older ones are
+    // stale, so skip ahead instead of sending them all onto the bus back to back.
+    uint8_t newer[sizeof(pkt)];
+    while (recvfrom(sockfd, newer, sizeof(newer), MSG_DONTWAIT, NULL, NULL) == (ssize_t) sizeof(newer)) {
+      memcpy(pkt, newer, sizeof(pkt));
     }
     memcpy(&state, pkt + 4, sizeof(state));
 

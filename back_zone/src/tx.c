@@ -64,7 +64,7 @@ static bool bus_is_degraded(int bus)
 static void send_heartbeat(uint8_t seq)
 {
 	struct can_frame frame = {
-		.id = MSG_HB_STEERING,
+		.id = MSG_HB_DRIVETRAIN,
 		.dlc = CAN_PAYLOAD_SIZE,
 		.flags = 0,
 	};

@@ -17,8 +17,9 @@
 #define CTRL_BTN_Y          6
 #define CTRL_BTN_A          4
 #define CTRL_BTN_B          5
+#define CTRL_BTN_X          3
 #define CTRL_BTN_RIGHT      0
-#define CTRL_RESERVED_MASK  0x0E
+#define CTRL_RESERVED_MASK  0x06
 
 #define HB_CAN_A_DEGRADED   7
 #define HB_CAN_B_DEGRADED   0
