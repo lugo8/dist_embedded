@@ -15,6 +15,7 @@
 #define BLINK_PERIOD_MS 500
 #define ERROR_BLINK_ON_MS 1000
 #define ERROR_BLINK_OFF_MS 1000
+#define BLINK_TICK_MS 10 /* LED latency; must be << the 500 ms BLINKER phase period */
 #define BLINK_THREAD_STACK_SIZE 768
 #define BLINK_THREAD_PRIORITY 5
 
@@ -49,23 +50,28 @@ static void blinker_thread(void *p1, void *p2, void *p3)
 	ARG_UNUSED(p3);
 
 	bool error_leds_on = false;
+	int64_t error_next_ms = 0;
 
 	while (1) {
-		bool in_error = atomic_get(&error_mode);
+		if (atomic_get(&error_mode)) {
+			int64_t now = k_uptime_get();
 
-		if (in_error) {
-			error_leds_on = !error_leds_on;
-			(void)set_leds(error_leds_on, error_leds_on);
-			k_sleep(K_MSEC(error_leds_on ? ERROR_BLINK_ON_MS :
-						       ERROR_BLINK_OFF_MS));
+			if (now >= error_next_ms) {
+				error_leds_on = !error_leds_on;
+				printk("DBG error-mode blink: leds=%d\n", error_leds_on);
+				(void)set_leds(error_leds_on, error_leds_on);
+				error_next_ms = now + (error_leds_on ? ERROR_BLINK_ON_MS :
+								       ERROR_BLINK_OFF_MS);
+			}
 		} else {
 			error_leds_on = false;
+			error_next_ms = 0;
 			uint8_t led_mask = atomic_get(&remote_led_mask);
 
 			(void)set_leds((led_mask & BIT(0)) != 0,
 				       (led_mask & BIT(1)) != 0);
-			k_sleep(K_MSEC(BLINK_PERIOD_MS));
 		}
+		k_sleep(K_MSEC(BLINK_TICK_MS));
 	}
 }
 
@@ -127,6 +133,8 @@ int blinker_set_message(uint8_t new_state, bool leds_on)
 		break;
 	}
 
+	printk("DBG blinker msg: state=%u leds_on=%d mask=0x%x error_mode=%ld\n",
+	       new_state, leds_on, led_mask, (long)atomic_get(&error_mode));
 	atomic_set(&remote_led_mask, led_mask);
 	return 0;
 }

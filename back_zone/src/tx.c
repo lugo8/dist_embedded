@@ -54,6 +54,13 @@ static bool bus_is_degraded(int bus)
 		printk("CAN %c state check failed: %d\n", 'A' + bus, rc);
 		io_status_mark_error();
 	}
+	static int last_deg[CAN_BUS_COUNT] = {-1, -1};
+
+	if (last_deg[bus] != degraded) { /* TEMP debug: print on change only */
+		last_deg[bus] = degraded;
+		printk("DBG bus %c degraded=%d can_state=%d(rc=%d) tx_failed=%ld\n", 'A' + bus,
+		       degraded, (int)state, rc, (long)atomic_get(&tx_failed[bus]));
+	}
 	if (io_status_set_can_degraded(bus, degraded)) {
 		printk("Failed to update CAN %c degraded indicator\n", 'A' + bus);
 	}
@@ -76,7 +83,7 @@ static void send_heartbeat(uint8_t seq)
 				  (void *)(intptr_t)bus);
 
 		if (rc) {
-			//printk("can_send heartbeat on bus %c failed: %d\n", 'A' + bus, rc);
+			printk("can_send heartbeat on bus %c failed: %d\n", 'A' + bus, rc);
 			atomic_set(&tx_failed[bus], 1);
 			io_status_set_can_degraded(bus, true);
 		}
