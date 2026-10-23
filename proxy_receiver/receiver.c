@@ -44,7 +44,8 @@
 
 #define CAN_MAX_DLC       8     // classic CAN
 
-#define HB_PERIOD_MS      20
+#define HB_PERIOD_MS      22    // R4.5 allows 20 ms +/-10 %; 22 is the slowest legal period
+#define HB_PHASE_MS       7     // start the HB beat this far off, so it doesn't line up with the STM heartbeats
 #define DEBOUNCE_MS       20    // test button (same as Lab 2)
 #define DOUBLE_PRESS_MS   500
 #define HB_MISS_MS        55    // a zone/bus is dead after this long with no heartbeat (3 missed + margin)
@@ -265,7 +266,7 @@ static void enter_error(void) {
 // HB TX thread, every 20ms
 static void *hb_thread(void *arg) {
   (void) arg;
-  int64_t next = now_ns();
+  int64_t next = now_ns() + HB_PHASE_MS * NS_PER_MS;
 
   while (1) {
     next += HB_PERIOD_MS * NS_PER_MS;
