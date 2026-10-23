@@ -14,7 +14,7 @@
 #include "protocol.h"
 #include "state.h"
 
-#define RX_QUEUE_DEPTH 64
+#define RX_QUEUE_DEPTH 256 /* a Pi burst is ~40 ZONE_CTRL frames per bus */
 #define BUTTON_B_DOUBLE_PRESS_MS 500
 
 static const struct device *const can_dev[2] = {
@@ -46,7 +46,7 @@ static void can_rx_cb(const struct device *dev, struct can_frame *frame,
 		if (atomic_cas(&rx_overflow_reported, 0, 1)) {
 			printk("CAN RX software queue full; dropping frames\n");
 		}
-		io_status_mark_error();
+		/* A dropped frame is not a zone fault: the next ZONE_CTRL replaces it. */
 	}
 }
 

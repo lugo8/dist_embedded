@@ -133,8 +133,6 @@ int blinker_set_message(uint8_t new_state, bool leds_on)
 		break;
 	}
 
-	printk("DBG blinker msg: state=%u leds_on=%d mask=0x%x error_mode=%ld\n",
-	       new_state, leds_on, led_mask, (long)atomic_get(&error_mode));
 	atomic_set(&remote_led_mask, led_mask);
 	return 0;
 }
