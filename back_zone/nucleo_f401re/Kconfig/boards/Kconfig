@@ -1,0 +1,2 @@
+# Load Zephyr board Kconfig descriptions.
+osource "C:/Users/biote/Documents/dist_embedded/dist_embedded/external/zephyr/boards/01space/esp32c3_042_oled/Kconfig"

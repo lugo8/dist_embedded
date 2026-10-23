@@ -1,33 +1,26 @@
 #include "protocol.h"
 
-uint8_t checksum(const uint8_t *data, size_t len)
+#include <stddef.h>
+
+static int16_t decode_i16_be(uint8_t msb, uint8_t lsb)
 {
-	uint8_t sum = 0;
+	uint16_t value = ((uint16_t)msb << 8) | lsb;
 
-	for (size_t i = 0; i < len; i++) {
-		sum ^= data[i];
-	}
-
-	return sum;
+	return value <= INT16_MAX ? (int16_t)value : (int16_t)((int32_t)value - 65536);
 }
 
-/* --------------------------------- RX --------------------------------- */
-// check if valid msg
-bool is_known_msg_type(uint8_t msg_type)
+bool is_known_msg_type(uint16_t id)
 {
-	switch (msg_type) {
-		case MSG_WHEEL_STATE:
-			return true;
-		case MSG_HB_RPI:
-			return true;
-		case MSG_HB_DRIVETRAIN:
-			return true;
-		case MSG_FORCE_FDBK:
-			return true;
-		case MSG_STATUS: // TEMP: only relevant on the self-loopback test rig -
-			return true; // the real Pi never echoes this back to the STM32
-		default:
-			return false;
+	switch (id) {
+	case MSG_ZONE_CTRL:
+	case MSG_HB_COCKPIT:
+	case MSG_HB_STEERING:
+	case MSG_HB_DRIVETRAIN:
+	case MSG_FORCE_FEEDBACK:
+	case MSG_BLINKERS:
+		return true;
+	default:
+		return false;
 	}
 }
 
@@ -49,80 +42,78 @@ const char *zone_state_name(uint8_t zone_state)
 	}
 }
 
-// axes use the full int16 range so any value is fine; only the button byte can be out of range
-bool wheel_frame_valid(const uint8_t *frame)
+bool wheel_frame_valid(const uint8_t payload[CAN_PAYLOAD_SIZE])
 {
-	return (frame[2 + 6] & BTN_RESERVED_MASK) == 0;
+	return (payload[0] & CTRL_RESERVED_MASK) == 0;
 }
 
-// get wheel info
-void decode_wheel_state(const uint8_t *frame, struct wheel_state *out)
+void decode_wheel_state(const uint8_t payload[CAN_PAYLOAD_SIZE], struct wheel_state *out)
 {
-	const uint8_t *data = frame+2;
-
-	out->seq = frame[1];
-	out->steering = (data[0] << 8 | data[1]);
-	out->throttle = (data[2] << 8 | data[3]);
-	out->brake = (data[4] << 8 | data[5]);
-	out->left_btn = (data[6] >> BTN_BIT_LEFT) & 1;
-	out->right_btn = (data[6] >> BTN_BIT_RIGHT) & 1;
-	out->self_test_btn = (data[6] >> BTN_BIT_SELF_TEST) & 1;
-	out->rpi_error = (data[7] & 1);
+	out->left_btn = (payload[0] >> CTRL_BTN_LEFT) & 1;
+	out->btn_y = (payload[0] >> CTRL_BTN_Y) & 1;
+	out->btn_a = (payload[0] >> CTRL_BTN_A) & 1;
+	out->self_test_btn = (payload[0] >> CTRL_BTN_B) & 1;
+	out->right_btn = (payload[0] >> CTRL_BTN_RIGHT) & 1;
+	out->brake = decode_i16_be(payload[1], payload[2]);
+	out->throttle = decode_i16_be(payload[3], payload[4]);
+	out->steering = decode_i16_be(payload[5], payload[6]);
+	out->seq = payload[7];
 }
 
-// get heartbeat info
-void decode_heartbeat(const uint8_t *frame, struct heartbeat *out)
+void decode_heartbeat(const uint8_t payload[CAN_PAYLOAD_SIZE], struct heartbeat *out)
 {
-	const uint8_t *data = &frame[2];
-
-	out->seq = frame[1];
-	out->line_alive = data[0] >> 7;
+	out->can_a_degraded = (payload[0] >> HB_CAN_A_DEGRADED) & 1;
+	out->can_b_degraded = (payload[0] >> HB_CAN_B_DEGRADED) & 1;
+	out->seq = payload[1];
 }
 
-// get force feedback info
-void decode_force_feedback(const uint8_t *frame, struct force_feedback *out)
+void encode_heartbeat(uint8_t seq, bool can_a_degraded, bool can_b_degraded,
+		      uint8_t payload[CAN_PAYLOAD_SIZE])
 {
-	const uint8_t *data = &frame[2];
-
-	out->seq = frame[1];
-	out->force = (data[0] << 8 | data[1]);
-}
-
-void decode_status(const uint8_t *frame, struct status_frame *out)
-{
-	const uint8_t *data = &frame[2];
-
-	out->seq = frame[1];
-	out->motor_a_current = (data[0] << 8 | data[1]);
-	out->motor_b_current = (data[2] << 8 | data[3]);
-	out->servo_current = (data[4] << 8 | data[5]);
-	out->zone_state = data[6];
-}
-
-/* --------------------------------- TX --------------------------------- */
-// form payload
-void encode_status_data(uint16_t motor_a_current, uint16_t motor_b_current,
-			 uint16_t servo_current, uint8_t zone_state, uint8_t data[8])
-{
-	data[0] = motor_a_current >> 8;
-	data[1] = motor_a_current & 0xFF;
-	data[2] = motor_b_current >> 8;
-	data[3] = motor_b_current & 0xFF;
-	data[4] = servo_current >> 8;
-	data[5] = servo_current & 0xFF;
-	data[6] = zone_state;
-	data[7] = 0;
-}
-
-// form frame
-void encode_frame(uint8_t msg_type, uint8_t seq, const uint8_t data[8], uint8_t *frame_out)
-{
-	frame_out[0] = msg_type;
-	frame_out[1] = seq;
-
-	for (int i = 0; i < 8; i++) {
-		frame_out[2 + i] = data[i];
+	for (size_t i = 0; i < CAN_PAYLOAD_SIZE; i++) {
+		payload[i] = 0;
 	}
 
-	frame_out[CMD_FRAME_LEN - 1] = checksum(frame_out, CMD_CHK_LEN);
+	payload[0] = (can_a_degraded << HB_CAN_A_DEGRADED) |
+		     (can_b_degraded << HB_CAN_B_DEGRADED);
+	payload[1] = seq;
+}
+
+void decode_force_feedback(const uint8_t payload[CAN_PAYLOAD_SIZE],
+			   struct force_feedback *out)
+{
+	out->force = decode_i16_be(payload[1], payload[0]);
+	out->seq = payload[2];
+}
+
+bool decode_blinkers(const uint8_t payload[CAN_PAYLOAD_SIZE],
+		     struct blinkers_message *out)
+{
+	if (payload[0] > BLINKERS_HAZARD || payload[1] > 1) {
+		return false;
+	}
+
+	out->state = payload[0];
+	out->leds_on = payload[1] != 0;
+	out->seq = payload[2];
+	return true;
+}
+
+uint8_t message_sequence(uint16_t id, const uint8_t payload[CAN_PAYLOAD_SIZE])
+{
+	switch (id) {
+	case MSG_ZONE_CTRL:
+		return payload[7];
+	case MSG_HB_COCKPIT:
+	case MSG_HB_STEERING:
+	case MSG_HB_DRIVETRAIN:
+		return payload[1];
+	case MSG_FORCE_FEEDBACK:
+	case MSG_BLINKERS:
+		return payload[2];
+	default:
+		return 0;
+	}
+
+
 }

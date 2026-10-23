@@ -15,7 +15,7 @@ TX_INTERVAL_MS = 45
 REMOTE_HOST = "172.26.166.20"
 S_PORT = 8000
 
-LOCAL_HOST = "172.26.26.182" # IP of local interface
+LOCAL_HOST = "172.26.92.141" # IP of local interface
 R_PORT = 8001
 ##
 
@@ -55,6 +55,7 @@ class MyMainwindow(QtWidgets.QMainWindow):
 
         self.send_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.send_ctr = 0
+        self.controller_available = False
 
         self.receive_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.receive_socket.bind((LOCAL_HOST, R_PORT))
@@ -82,10 +83,15 @@ class MyMainwindow(QtWidgets.QMainWindow):
             if initialized:
                 print('initialized successfully')
             else:
+                print('Logitech steering wheel SDK initialization failed')
                 return
 
-            if lsw.is_connected(0):
-                print('connected to a steering wheel at index 0')
+            if not lsw.is_connected(0):
+                print('No Logitech steering wheel connected at index 0')
+                return
+
+            self.controller_available = True
+            print('connected to a steering wheel at index 0')
 
             lsw.update()
             # Move wheel to register initial state
@@ -98,12 +104,25 @@ class MyMainwindow(QtWidgets.QMainWindow):
             print(lsw.get_current_controller_properties(0))
 
         except Exception as e:
-                print(e)
+            print(e)
+
+    def _controller_unavailable(self, error: RuntimeError) -> None:
+        self.controller_available = False
+        self.update_timer.stop()
+        self.transmit_timer.stop()
+        print(f'Steering wheel polling stopped: {error}')
 
     def _transmit(self):
+        if not self.controller_available:
+            return
+
         # Send logitech wheel state
         #print("Transmit")
-        state_c = lsw.get_c_state(0)
+        try:
+            state_c = lsw.get_c_state(0)
+        except RuntimeError as error:
+            self._controller_unavailable(error)
+            return
         pdata = bytearray(ctypes.string_at(ctypes.byref(state_c), ctypes.sizeof(state_c)))
         #print(ctypes.string_at(ctypes.byref(state_c), ctypes.sizeof(state_c)))
         # Append packet counter
@@ -113,8 +132,15 @@ class MyMainwindow(QtWidgets.QMainWindow):
         
 
     def _update_sw(self):
+        if not self.controller_available:
+            return
+
         lsw.update()
-        state = lsw.get_state(0)
+        try:
+            state = lsw.get_state(0)
+        except RuntimeError as error:
+            self._controller_unavailable(error)
+            return
 
         # Set GUI vars
         self.current_angle.setValue(state.lX)
@@ -142,6 +168,7 @@ class MyMainwindow(QtWidgets.QMainWindow):
 
     def stop(self):
         print('disconnecting')
+        self.controller_available = False
         lsw.shutdown()
         self.update_timer.stop()
         self.transmit_timer.stop()

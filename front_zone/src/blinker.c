@@ -1,110 +1,132 @@
-#include <zephyr/kernel.h>
-#include <zephyr/drivers/gpio.h>
-#include <zephyr/sys/atomic.h>
 #include "blinker.h"
 
-/* wheel angle 0-900 deg, lower = left */
-#define LEFT_TURN_THRESHOLD 299
-#define RIGHT_TURN_THRESHOLD 601
-#define TICK_MS 250
+#include <errno.h>
 
-enum { OFF, LEFT, RIGHT, HAZARD };
+#include <zephyr/device.h>
+#include <zephyr/devicetree.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/kernel.h>
+#include <zephyr/sys/atomic.h>
+#include <zephyr/sys/util.h>
+
+#include "io_status.h"
+#include "protocol.h"
+
+#define BLINK_PERIOD_MS 500
+#define ERROR_BLINK_ON_MS 1000
+#define ERROR_BLINK_OFF_MS 1000
+#define BLINK_THREAD_STACK_SIZE 768
+#define BLINK_THREAD_PRIORITY 5
 
 static const struct gpio_dt_spec fl = GPIO_DT_SPEC_GET(DT_NODELABEL(fl), gpios);
 static const struct gpio_dt_spec fr = GPIO_DT_SPEC_GET(DT_NODELABEL(fr), gpios);
-static const struct gpio_dt_spec rl = GPIO_DT_SPEC_GET(DT_NODELABEL(rl), gpios);
-static const struct gpio_dt_spec rr = GPIO_DT_SPEC_GET(DT_NODELABEL(rr), gpios);
 
-/* written by threads, read in the timer isr */
-static atomic_t state = ATOMIC_INIT(OFF);
-static bool passed;
+static atomic_t remote_led_mask;
+static atomic_t error_mode = ATOMIC_INIT(0);
 
-static void tick(struct k_timer *t)
+static int set_leds(bool left, bool right)
 {
-	static int last = OFF;
-	static uint32_t n;
-	int s = atomic_get(&state);
+	int rc = gpio_pin_set_dt(&fl, left);
 
-	/* restart the pattern on a change so it starts in the on phase */
-	if (s != last) {
-		n = 0;
-		last = s;
+	if (rc) {
+		io_status_mark_error();
+		printk("Front-left blinker GPIO failed: %d\n", rc);
+		return rc;
+	}
+	rc = gpio_pin_set_dt(&fr, right);
+	if (rc) {
+		io_status_mark_error();
+		printk("Front-right blinker GPIO failed: %d\n", rc);
 	}
 
-	bool slow = ((n >> 1) & 1) == 0;  /* 500 ms on, 500 ms off */
-	bool fast = (n & 1) == 0;         /* 250 ms on, 250 ms off */
-	n++;
-
-	bool l = (s == LEFT && slow) || (s == HAZARD && fast);
-	bool r = (s == RIGHT && slow) || (s == HAZARD && fast);
-
-	/* same callback for front and rear keeps each side in sync */
-	gpio_pin_set_dt(&fl, l);
-	gpio_pin_set_dt(&rl, l);
-	gpio_pin_set_dt(&fr, r);
-	gpio_pin_set_dt(&rr, r);
+	return rc;
 }
 
-K_TIMER_DEFINE(blink_timer, tick, NULL);
-
-static void set_state(int s)
+static void blinker_thread(void *p1, void *p2, void *p3)
 {
-	if (atomic_set(&state, s) != s) {
-		passed = false;
-		/* fire now instead of waiting up to a full tick */
-		k_timer_start(&blink_timer, K_NO_WAIT, K_MSEC(TICK_MS));
-	}
-}
+	ARG_UNUSED(p1);
+	ARG_UNUSED(p2);
+	ARG_UNUSED(p3);
 
-void blinker_init(void)
-{
-	gpio_pin_configure_dt(&fl, GPIO_OUTPUT_INACTIVE);
-	gpio_pin_configure_dt(&fr, GPIO_OUTPUT_INACTIVE);
-	gpio_pin_configure_dt(&rl, GPIO_OUTPUT_INACTIVE);
-	gpio_pin_configure_dt(&rr, GPIO_OUTPUT_INACTIVE);
-	k_timer_start(&blink_timer, K_NO_WAIT, K_MSEC(TICK_MS));
-}
+	bool error_leds_on = false;
 
-/* hazards win over turn signals until they are cleared */
-void blinker_left(void)
-{
-	if (atomic_get(&state) != HAZARD) {
-		set_state(LEFT);
-	}
-}
+	while (1) {
+		bool in_error = atomic_get(&error_mode);
 
-void blinker_right(void)
-{
-	if (atomic_get(&state) != HAZARD) {
-		set_state(RIGHT);
-	}
-}
+		if (in_error) {
+			error_leds_on = !error_leds_on;
+			(void)set_leds(error_leds_on, error_leds_on);
+			k_sleep(K_MSEC(error_leds_on ? ERROR_BLINK_ON_MS :
+						       ERROR_BLINK_OFF_MS));
+		} else {
+			error_leds_on = false;
+			uint8_t led_mask = atomic_get(&remote_led_mask);
 
-void blinker_hazard(bool on)
-{
-	if (on) {
-		set_state(HAZARD);
-	} else if (atomic_get(&state) == HAZARD) {
-		set_state(OFF);
-	}
-}
-
-/* cancel once the wheel goes past the threshold and comes back */
-void blinker_steer(int steer)
-{
-	int s = atomic_get(&state);
-
-	if (s == LEFT) {
-		if (steer < LEFT_TURN_THRESHOLD) {
-			passed = true;
-		} else if (passed) {
-			set_state(OFF);
-		}
-	} else if (s == RIGHT) {
-		if (steer > RIGHT_TURN_THRESHOLD) {
-			passed = true;
-		} else if (passed) {
-			set_state(OFF);
+			(void)set_leds((led_mask & BIT(0)) != 0,
+				       (led_mask & BIT(1)) != 0);
+			k_sleep(K_MSEC(BLINK_PERIOD_MS));
 		}
 	}
+}
+
+K_THREAD_DEFINE(blinker_tid, BLINK_THREAD_STACK_SIZE, blinker_thread,
+		NULL, NULL, NULL, BLINK_THREAD_PRIORITY, 0, SYS_FOREVER_MS);
+
+int blinker_init(void)
+{
+	if (!gpio_is_ready_dt(&fl) || !gpio_is_ready_dt(&fr)) {
+		return -ENODEV;
+	}
+
+	int rc = gpio_pin_configure_dt(&fl, GPIO_OUTPUT_INACTIVE);
+
+	if (rc) {
+		return rc;
+	}
+
+	rc = gpio_pin_configure_dt(&fr, GPIO_OUTPUT_INACTIVE);
+	if (rc) {
+		return rc;
+	}
+
+	k_thread_start(blinker_tid);
+	return 0;
+}
+
+void blinker_set_error_mode(bool enabled)
+{
+	if (enabled) {
+		atomic_set(&error_mode, 1);
+	} else {
+		atomic_set(&error_mode, 0);
+		atomic_set(&remote_led_mask, 0);
+		(void)set_leds(false, false);
+	}
+}
+
+int blinker_set_message(uint8_t new_state, bool leds_on)
+{
+	if (new_state > BLINKERS_HAZARD) {
+		return -EINVAL;
+	}
+
+	uint8_t led_mask = 0;
+
+	switch (new_state) {
+	case BLINKERS_OFF:
+		led_mask = 0;
+		break;
+	case BLINKERS_LEFT:
+		led_mask = leds_on ? BIT(0) : 0;
+		break;
+	case BLINKERS_RIGHT:
+		led_mask = leds_on ? BIT(1) : 0;
+		break;
+	case BLINKERS_HAZARD:
+		led_mask = leds_on ? (BIT(0) | BIT(1)) : 0;
+		break;
+	}
+
+	atomic_set(&remote_led_mask, led_mask);
+	return 0;
 }

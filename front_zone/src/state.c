@@ -22,6 +22,9 @@ static int64_t last_rpi_hb_ms;
 static struct heartbeat latest_hb_drivetrain;
 static int64_t last_drivetrain_hb_ms;
 
+static struct heartbeat latest_hb_steering;
+static int64_t last_steering_hb_ms;
+
 static struct force_feedback latest_force_feedback;
 
 void state_set_wheel_state(const struct wheel_state *ws)
@@ -70,6 +73,14 @@ void state_set_hb_drivetrain(const struct heartbeat *hb)
 	k_mutex_lock(&aux_mutex, K_FOREVER);
 	latest_hb_drivetrain = *hb;
 	last_drivetrain_hb_ms = k_uptime_get();
+	k_mutex_unlock(&aux_mutex);
+}
+
+void state_set_hb_steering(const struct heartbeat *hb)
+{
+	k_mutex_lock(&aux_mutex, K_FOREVER);
+	latest_hb_steering = *hb;
+	last_steering_hb_ms = k_uptime_get();
 	k_mutex_unlock(&aux_mutex);
 }
 

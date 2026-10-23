@@ -1,0 +1,1 @@
+"mcuboot":"C:/Users/biote/Documents/dist_embedded/dist_embedded/external/bootloader/mcuboot":"C:/Users/biote/Documents/dist_embedded/dist_embedded/external/bootloader/mcuboot/boot/zephyr/sysbuild"

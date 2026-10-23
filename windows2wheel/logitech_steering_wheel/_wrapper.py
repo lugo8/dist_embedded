@@ -105,6 +105,8 @@ def get_state(index: int) -> State:
     :returns DIJOYSTATE2*
     """
     c_struct_state_pointer = _dll_handle.LogiGetState(ctypes.c_int(index))
+    if not c_struct_state_pointer:
+        raise RuntimeError(f"No controller state available for index {index}")
     return State.from_c_struct(c_struct_state_pointer.contents)
 
 def get_c_state(index: int) -> DIJOYSTATE2:
@@ -114,6 +116,8 @@ def get_c_state(index: int) -> DIJOYSTATE2:
     :returns DIJOYSTATE2*
     """
     c_struct_state_pointer = _dll_handle.LogiGetState(ctypes.c_int(index))
+    if not c_struct_state_pointer:
+        raise RuntimeError(f"No controller state available for index {index}")
     return c_struct_state_pointer.contents
 
 

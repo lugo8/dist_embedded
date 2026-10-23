@@ -20,6 +20,7 @@ uint32_t state_wheel_frame_cycle(void);
 
 void state_set_hb_rpi(const struct heartbeat *hb);
 void state_set_hb_drivetrain(const struct heartbeat *hb);
+void state_set_hb_steering(const struct heartbeat *hb);
 
 void state_set_force_feedback(const struct force_feedback *fb);
 

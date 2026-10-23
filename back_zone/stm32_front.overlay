@@ -1,0 +1,95 @@
+/*
+ * STM32 front (N2, steering zone) on nucleo_f401re
+ *
+ * Contents: dual MCP2515 CAN on SPI1 (unchanged from nucleo_f401re.overlay),
+ * servo PWM, FL / FR blinker LEDs, RELAY_TX and ERR test points.
+ *
+ * Deliberately NOT carried over from app.overlay: encoders, motor PWM, ADC
+ * current sensing, usart1 move (PA10 is the CAN A INT line here), i2c1,
+ * pwm2, and the CAN_RX/CAN_TX/DEG test points.
+ *
+ * Pin changes versus the team spreadsheet (front column), and why:
+ *   SRV      PC11 -> PA8   PC11 has no timer output on the F401, so it cannot do PWM
+ *   FR       PA13 -> PC11  PA13 is SWDIO (debug), driving it as GPIO kills SWD
+ *   RELAY_TX PA14 -> PC8   PA14 is SWCLK (debug), same problem
+ * Update the spreadsheet / test-point board to match.
+ */
+
+/ {
+	aliases {
+		can-a = &can_a;
+		can-b = &can_b;
+	};
+
+	/* front blinkers */
+	blinkers {
+		compatible = "gpio-leds";
+		fl: fl { gpios = <&gpiod 2 GPIO_ACTIVE_HIGH>; };    /* PD2,  spreadsheet row 10 */
+		fr: fr { gpios = <&gpioc 11 GPIO_ACTIVE_HIGH>; };   /* PC11, spreadsheet said PA13 */
+	};
+
+	zephyr,user {
+		/* 0: steering servo on TIM1_CH1 */
+		pwms = <&servo_pwm 1 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
+
+		/* scope test point: toggles when the relay queues a forwarded frame */
+		tp-relay-tx-gpios = <&gpioc 8 GPIO_ACTIVE_HIGH>;    /* PC8, spreadsheet said PA14 */
+		/* high while this zone is in the error state */
+		tp-err-gpios = <&gpioa 15 GPIO_ACTIVE_HIGH>;        /* PA15, spreadsheet row 13 */
+		can-a-degraded-gpios = <&gpioc 10 GPIO_ACTIVE_HIGH>; /* PC10 */
+		can-b-degraded-gpios = <&gpioc 12 GPIO_ACTIVE_HIGH>; /* PC12 */
+		can-a-rx-gpios = <&gpiob 8 GPIO_ACTIVE_HIGH>;        /* PB8 */
+		can-b-rx-gpios = <&gpiob 9 GPIO_ACTIVE_HIGH>;        /* PB9 */
+		can-a-tx-gpios = <&gpioa 0 GPIO_ACTIVE_HIGH>;        /* PA0 */
+		can-b-tx-gpios = <&gpioa 1 GPIO_ACTIVE_HIGH>;        /* PA1 */
+	};
+};
+
+/* the board file puts i2c3 on PA8, which the servo needs */
+&i2c3 { status = "disabled"; };
+
+/* I2C1 is not used. USART2 stays enabled for the ST-LINK USB virtual COM port. */
+&i2c1 { status = "disabled"; };
+&usart2 { status = "okay"; };
+
+/* servo on PA8 (D7). prescaler makes the timer count at 1 MHz so a 20 ms
+ * period fits in the 16-bit counter (assumes 84 MHz timer clock) */
+&timers1 {
+	status = "okay";
+	st,prescaler = <83>;
+
+	servo_pwm: pwm {
+		pinctrl-0 = <&tim1_ch1_pa8>;
+		pinctrl-names = "default";
+		status = "okay";
+	};
+};
+
+/* ---- CAN: unchanged from nucleo_f401re.overlay ---- */
+
+&spi1 {
+	status = "okay";
+	/* index 0 = CAN A on D10 (PB6), index 1 = CAN B on D9 (PC7) */
+	cs-gpios = <&gpiob 6 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>,
+		   <&gpioc 7 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+
+	can_a: mcp2515@0 {
+		compatible = "microchip,mcp2515";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		int-gpios = <&gpioa 10 GPIO_ACTIVE_LOW>;  /* D2 */
+		osc-freq = <16000000>;                    /* match your crystal */
+		bitrate = <500000>;
+		status = "okay";
+	};
+
+	can_b: mcp2515@1 {
+		compatible = "microchip,mcp2515";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+		int-gpios = <&gpiob 5 GPIO_ACTIVE_LOW>;   /* D4 */
+		osc-freq = <16000000>;
+		bitrate = <500000>;
+		status = "okay";
+	};
+};

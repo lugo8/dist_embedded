@@ -36,11 +36,21 @@
 		tp-relay-tx-gpios = <&gpioc 8 GPIO_ACTIVE_HIGH>;    /* PC8, spreadsheet said PA14 */
 		/* high while this zone is in the error state */
 		tp-err-gpios = <&gpioa 15 GPIO_ACTIVE_HIGH>;        /* PA15, spreadsheet row 13 */
+		can-a-degraded-gpios = <&gpioc 10 GPIO_ACTIVE_HIGH>; /* PC10 */
+		can-b-degraded-gpios = <&gpioc 12 GPIO_ACTIVE_HIGH>; /* PC12 */
+		can-a-rx-gpios = <&gpiob 8 GPIO_ACTIVE_HIGH>;        /* PB8 */
+		can-b-rx-gpios = <&gpiob 9 GPIO_ACTIVE_HIGH>;        /* PB9 */
+		can-a-tx-gpios = <&gpioa 0 GPIO_ACTIVE_HIGH>;        /* PA0 */
+		can-b-tx-gpios = <&gpioa 1 GPIO_ACTIVE_HIGH>;        /* PA1 */
 	};
 };
 
 /* the board file puts i2c3 on PA8, which the servo needs */
 &i2c3 { status = "disabled"; };
+
+/* I2C1 is not used. USART2 stays enabled for the ST-LINK USB virtual COM port. */
+&i2c1 { status = "disabled"; };
+&usart2 { status = "okay"; };
 
 /* servo on PA8 (D7). prescaler makes the timer count at 1 MHz so a 20 ms
  * period fits in the 16-bit counter (assumes 84 MHz timer clock) */

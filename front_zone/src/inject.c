@@ -8,12 +8,21 @@
 
 #include "control.h"
 #include "protocol.h"
-#include "tx.h"
 
 #define SEND_PERIOD_MS 20
 #define BTN_HOLD_TICKS 5 /* a "press" lasts 100 ms, like a real button */
 
 static const struct device *const con = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
+static K_MUTEX_DEFINE(inject_uart_tx_mutex);
+
+static void uart_send_frame(const uint8_t *frame, size_t len)
+{
+	k_mutex_lock(&inject_uart_tx_mutex, K_FOREVER);
+	for (size_t i = 0; i < len; i++) {
+		uart_poll_out(con, frame[i]);
+	}
+	k_mutex_unlock(&inject_uart_tx_mutex);
+}
 
 static void print_help(void)
 {

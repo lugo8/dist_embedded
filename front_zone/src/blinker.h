@@ -1,8 +1,7 @@
 #pragma once
 #include <stdbool.h>
+#include <stdint.h>
 
-void blinker_init(void);
-void blinker_left(void);
-void blinker_right(void);
-void blinker_hazard(bool on);
-void blinker_steer(int steer);
+int blinker_init(void);
+int blinker_set_message(uint8_t state, bool leds_on);
+void blinker_set_error_mode(bool enabled);
