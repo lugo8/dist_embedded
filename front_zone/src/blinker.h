@@ -4,4 +4,3 @@
 
 int blinker_init(void);
 int blinker_set_message(uint8_t state, bool leds_on);
-void blinker_set_error_mode(bool enabled);

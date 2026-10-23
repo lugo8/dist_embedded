@@ -13,6 +13,6 @@ void io_status_clear_error(void);
 bool io_status_error_active(void);
 void io_status_note_control_received(void);
 void io_status_mark_error(void);
-void io_status_set_blinker_ready(void);
+bool io_status_blinker_hazard_override(void);
 
 #endif /* IO_STATUS_H_ */

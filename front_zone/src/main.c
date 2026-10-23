@@ -57,8 +57,6 @@ int main(void)
 		io_status_mark_error();
 		return 0;
 	}
-	io_status_set_blinker_ready();
-
 	rc = rx_init();
 	if (rc) {
 		printk("RX init failed: %d\n", rc);

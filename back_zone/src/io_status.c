@@ -9,7 +9,6 @@
 #include <zephyr/sys/printk.h>
 #include <zephyr/sys/util.h>
 
-#include "blinker.h"
 #include "motor.h"
 #include "protocol.h"
 #include "state.h"
@@ -31,7 +30,6 @@ static const struct gpio_dt_spec error_pin =
 
 static atomic_t degraded_mask;
 static atomic_t error_active;
-static atomic_t blinker_ready;
 
 static int configure_output(const struct gpio_dt_spec *pin)
 {
@@ -46,7 +44,6 @@ int io_status_init(void)
 {
 	atomic_clear(&degraded_mask);
 	atomic_clear(&error_active);
-	atomic_clear(&blinker_ready);
 
 	int rc = configure_output(&error_pin);
 
@@ -94,9 +91,6 @@ void io_status_enter_error(uint8_t zone_state)
 	if (rc) {
 		printk("Motor failsafe stop failed: %d\n", rc);
 	}
-	if (atomic_get(&blinker_ready)) {
-		blinker_set_error_mode(true);
-	}
 }
 
 void io_status_clear_error(void)
@@ -108,9 +102,6 @@ void io_status_clear_error(void)
 	if (rc) {
 		io_status_enter_error(ZONE_STATE_FAILSAFE_RPI_ERROR);
 		return;
-	}
-	if (atomic_get(&blinker_ready)) {
-		blinker_set_error_mode(false);
 	}
 }
 
@@ -195,8 +186,8 @@ int io_status_set_can_degraded(uint8_t bus, bool degraded)
 	return rc;
 }
 
-void io_status_set_blinker_ready(void)
+bool io_status_blinker_hazard_override(void)
 {
-	atomic_set(&blinker_ready, 1);
-	blinker_set_error_mode(io_status_error_active());
+	return atomic_get(&degraded_mask) == (BIT(0) | BIT(1)) ||
+	       state_rpi_heartbeat_missing_on_both_buses();
 }

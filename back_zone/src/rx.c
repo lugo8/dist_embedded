@@ -178,7 +178,9 @@ static void handle_frame(const struct rx_item *item)
 
 	uint8_t seq = message_sequence(frame->id, frame->data);
 
-	if (is_duplicate(frame->id, seq, item->bus)) {
+	/* Heartbeats from the two buses must be tracked independently. */
+	if (frame->id != MSG_HB_COCKPIT &&
+	    is_duplicate(frame->id, seq, item->bus)) {
 		return;
 	}
 
@@ -190,7 +192,7 @@ static void handle_frame(const struct rx_item *item)
 	case MSG_HB_COCKPIT:
 		//printk("cockpit heartbeat frame received on bus %c\n", 'A' + item->bus);
 		decode_heartbeat(frame->data, &hb);
-		state_set_hb_rpi(&hb);
+		state_set_hb_rpi(&hb, item->bus);
 		break;
 	case MSG_HB_STEERING:
 		//printk("steering heartbeat frame received on bus %c\n", 'A' + item->bus);

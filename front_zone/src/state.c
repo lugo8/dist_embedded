@@ -17,7 +17,10 @@ static K_SEM_DEFINE(wheel_frame_sem, 0, 1);
 static K_MUTEX_DEFINE(aux_mutex);
 
 static struct heartbeat latest_hb_rpi;
-static int64_t last_rpi_hb_ms;
+static int64_t last_rpi_hb_ms[2] = {
+	-(LINK_TIMEOUT_MS + 1),
+	-(LINK_TIMEOUT_MS + 1),
+};
 
 static struct heartbeat latest_hb_drivetrain;
 static int64_t last_drivetrain_hb_ms;
@@ -60,11 +63,15 @@ void state_get_wheel_state(struct wheel_state *out)
 	k_mutex_unlock(&wheel_state_mutex);
 }
 
-void state_set_hb_rpi(const struct heartbeat *hb)
+void state_set_hb_rpi(const struct heartbeat *hb, uint8_t bus)
 {
+	if (bus >= ARRAY_SIZE(last_rpi_hb_ms)) {
+		return;
+	}
+
 	k_mutex_lock(&aux_mutex, K_FOREVER);
 	latest_hb_rpi = *hb;
-	last_rpi_hb_ms = k_uptime_get();
+	last_rpi_hb_ms[bus] = k_uptime_get();
 	k_mutex_unlock(&aux_mutex);
 }
 
@@ -134,4 +141,17 @@ bool link_is_alive(void)
 	k_mutex_unlock(&wheel_state_mutex);
 
 	return (k_uptime_get() - last) < LINK_TIMEOUT_MS;
+}
+
+bool state_rpi_heartbeat_missing_on_both_buses(void)
+{
+	bool missing;
+	int64_t now = k_uptime_get();
+
+	k_mutex_lock(&aux_mutex, K_FOREVER);
+	missing = (now - last_rpi_hb_ms[0] >= LINK_TIMEOUT_MS) &&
+		  (now - last_rpi_hb_ms[1] >= LINK_TIMEOUT_MS);
+	k_mutex_unlock(&aux_mutex);
+
+	return missing;
 }
