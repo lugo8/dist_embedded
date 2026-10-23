@@ -10,12 +10,16 @@
 
 #include "blinker.h"
 #include "control.h"
+#include "edf.h"
 #include "io_status.h"
 #include "protocol.h"
 #include "state.h"
 
 #define RX_QUEUE_DEPTH 256 /* a Pi burst is ~40 ZONE_CTRL frames per bus */
 #define BUTTON_B_DOUBLE_PRESS_MS 500
+#define RELAY_DUPLICATE_WINDOW_MS LINK_TIMEOUT_MS
+
+extern const k_tid_t rx_tid;
 
 static const struct device *const can_dev[2] = {
 	DEVICE_DT_GET(DT_NODELABEL(can_a)),
@@ -42,6 +46,7 @@ static void can_rx_cb(const struct device *dev, struct can_frame *frame,
 	if (io_status_can_rx(it.bus)) {
 		io_status_mark_error();
 	}
+	edf_deadline_after_ms(rx_tid, 5, EDF_TIE_CAN_RX);
 	if (k_msgq_put(&rx_q, &it, K_NO_WAIT)) {
 		if (atomic_cas(&rx_overflow_reported, 0, 1)) {
 			printk("CAN RX software queue full; dropping frames\n");
@@ -53,11 +58,22 @@ static void can_rx_cb(const struct device *dev, struct can_frame *frame,
 struct seen {
 	uint16_t id;
 	uint8_t seq;
-	uint8_t bus;
+	int64_t seen_ms;
 	bool valid;
 };
 
 static struct seen seen_tbl[8];
+enum message_source {
+	SOURCE_COCKPIT,
+	SOURCE_STEERING,
+	SOURCE_DRIVETRAIN,
+	SOURCE_COUNT,
+};
+static int64_t source_heartbeat_ms[SOURCE_COUNT][2] = {
+	{ -(LINK_TIMEOUT_MS + 1), -(LINK_TIMEOUT_MS + 1) },
+	{ -(LINK_TIMEOUT_MS + 1), -(LINK_TIMEOUT_MS + 1) },
+	{ -(LINK_TIMEOUT_MS + 1), -(LINK_TIMEOUT_MS + 1) },
+};
 static bool previous_button_b;
 static bool button_b_press_pending;
 static int64_t button_b_first_press_ms;
@@ -101,19 +117,59 @@ static void handle_button_b(bool pressed)
 	previous_button_b = pressed;
 }
 
-static bool is_duplicate(uint16_t id, uint8_t seq, uint8_t bus)
+static int message_source(uint16_t id)
+{
+	switch (id) {
+	case MSG_ZONE_CTRL:
+	case MSG_HB_COCKPIT:
+	case MSG_BLINKERS:
+		return SOURCE_COCKPIT;
+	case MSG_HB_STEERING:
+		return SOURCE_STEERING;
+	case MSG_HB_DRIVETRAIN:
+	case MSG_FORCE_FEEDBACK:
+		return SOURCE_DRIVETRAIN;
+	default:
+		return -1;
+	}
+}
+
+static void note_source_heartbeat(uint16_t id, uint8_t bus)
+{
+	int source;
+
+	switch (id) {
+	case MSG_HB_COCKPIT:
+		source = SOURCE_COCKPIT;
+		break;
+	case MSG_HB_STEERING:
+		source = SOURCE_STEERING;
+		break;
+	case MSG_HB_DRIVETRAIN:
+		source = SOURCE_DRIVETRAIN;
+		break;
+	default:
+		return;
+	}
+
+	source_heartbeat_ms[source][bus] = k_uptime_get();
+}
+
+static bool is_duplicate(uint16_t id, uint8_t seq)
 {
 	struct seen *free_slot = NULL;
+	int64_t now = k_uptime_get();
 
 	for (int i = 0; i < ARRAY_SIZE(seen_tbl); i++) {
 		struct seen *s = &seen_tbl[i];
 
 		if (s->valid && s->id == id) {
-			bool dup = (s->seq == seq) && (s->bus != bus);
+			bool dup = s->seq == seq &&
+				   now - s->seen_ms < RELAY_DUPLICATE_WINDOW_MS;
 
 			if (!dup) {
 				s->seq = seq;
-				s->bus = bus;
+				s->seen_ms = now;
 			}
 			return dup;
 		}
@@ -125,14 +181,42 @@ static bool is_duplicate(uint16_t id, uint8_t seq, uint8_t bus)
 		*free_slot = (struct seen){
 			.id = id,
 			.seq = seq,
-			.bus = bus,
+			.seen_ms = now,
 			.valid = true,
 		};
 	}
 	return false;
 }
 
-static void handle_zone_control(const uint8_t payload[CAN_PAYLOAD_SIZE])
+static void relay_if_source_bus_only(const struct rx_item *item, int source)
+{
+	if (source < 0) {
+		return;
+	}
+
+	uint8_t from_bus = item->bus;
+	uint8_t to_bus = 1U - from_bus;
+	int64_t now = k_uptime_get();
+	bool source_on_ingress =
+		now - source_heartbeat_ms[source][from_bus] < LINK_TIMEOUT_MS;
+	bool source_on_egress =
+		now - source_heartbeat_ms[source][to_bus] < LINK_TIMEOUT_MS;
+
+	if (!source_on_ingress || source_on_egress ||
+	    io_status_is_can_degraded(to_bus)) {
+		return;
+	}
+
+	int rc = can_send(can_dev[to_bus], &item->frame, K_MSEC(5), NULL, NULL);
+
+	if (rc) {
+		printk("CAN relay %c->%c failed for 0x%03x: %d\n",
+		       'A' + from_bus, 'A' + to_bus, item->frame.id, rc);
+		(void)io_status_set_can_degraded(to_bus, true);
+	}
+}
+
+static void handle_zone_control(const uint8_t payload[CAN_MAX_PAYLOAD_SIZE])
 {
 	struct wheel_state ws;
 
@@ -143,17 +227,11 @@ static void handle_zone_control(const uint8_t payload[CAN_PAYLOAD_SIZE])
 	}
 
 	decode_wheel_state(payload, &ws);
+	control_schedule_frame();
 	state_set_wheel_state(&ws);
 	io_status_note_control_received();
 
 	handle_button_b(ws.self_test_btn);
-
-	int rc = control_apply_zone_control(&ws);
-
-	if (rc) {
-		printk("Immediate motor output update failed: %d\n", rc);
-		io_status_mark_error();
-	}
 }
 
 static void handle_frame(const struct rx_item *item)
@@ -165,7 +243,7 @@ static void handle_frame(const struct rx_item *item)
 		return;
 	}
 
-	if (frame->dlc != CAN_PAYLOAD_SIZE ||
+	if (frame->dlc != message_dlc(frame->id) ||
 	    (frame->flags & (CAN_FRAME_IDE | CAN_FRAME_RTR))) {
 		printk("Rejecting malformed CAN frame 0x%03x on bus %c\n",
 		       frame->id, 'A' + item->bus);
@@ -177,12 +255,13 @@ static void handle_frame(const struct rx_item *item)
 	}
 
 	uint8_t seq = message_sequence(frame->id, frame->data);
+	int source = message_source(frame->id);
 
-	/* Heartbeats from the two buses must be tracked independently. */
-	if (frame->id != MSG_HB_COCKPIT &&
-	    is_duplicate(frame->id, seq, item->bus)) {
+	note_source_heartbeat(frame->id, item->bus);
+	if (is_duplicate(frame->id, seq)) {
 		return;
 	}
+	relay_if_source_bus_only(item, source);
 
 	switch (frame->id) {
 	case MSG_ZONE_CTRL:
@@ -250,10 +329,8 @@ static void rx_thread(void *p1, void *p2, void *p3)
 }
 
 #define RX_STACK_SIZE 1024
-#define RX_PRIORITY 3 /* decide this from your Part 3 analysis */
-
 K_THREAD_DEFINE(rx_tid, RX_STACK_SIZE, rx_thread, NULL, NULL, NULL,
-		RX_PRIORITY, 0, 0);
+		EDF_THREAD_PRIORITY, 0, 0);
 
 int rx_init(void)
 {

@@ -1,6 +1,5 @@
 #include "control.h"
 
-#include <errno.h>
 #include <math.h>
 #include <stdlib.h>
 
@@ -8,6 +7,7 @@
 #include <zephyr/sys/printk.h>
 #include <zephyr/sys/util.h>
 
+#include "edf.h"
 #include "encoder.h"
 #include "io_status.h"
 #include "motor.h"
@@ -59,56 +59,6 @@ static float ff_duty(float rpm)
 	}
 
 	return ff_table[FF_N - 1].duty_pct;
-}
-
-static int throttle_duty(int16_t throttle)
-{
-	int throttle_scaled =
-		CLAMP(-(int)throttle, 0, WIRE_AXIS_MAX) *
-		WHEEL_THROTTLE_MAX / WIRE_AXIS_MAX;
-
-	if (throttle_scaled <= THROTTLE_DEADZONE) {
-		return 0;
-	}
-
-	int target_rpm =
-		RPM_AT_DEADBAND +
-		(throttle_scaled - THROTTLE_DEADZONE) *
-			(MAX_TARGET_RPM - RPM_AT_DEADBAND) /
-			(WHEEL_THROTTLE_MAX - THROTTLE_DEADZONE);
-
-	return (int)(ff_duty(target_rpm) + 0.5f);
-}
-
-int control_apply_zone_control(const struct wheel_state *ws)
-{
-	//printk("control_apply_zone_control: steering=%d throttle=%d brake=%d left_btn=%d right_btn=%d self_test_btn=%d btn_a=%d btn_y=%d\n",
-	       //ws->steering, ws->throttle, ws->brake, ws->left_btn, ws->right_btn,
-	       //ws->self_test_btn, ws->btn_a, ws->btn_y);
-	if (!ws) {
-		return -EINVAL;
-	}
-
-	bool error = io_status_error_active() || !link_is_alive() ||
-		     bad_cmd_active();
-	uint32_t brake_pct =
-		(uint32_t)(INT16_MAX - (int32_t)ws->brake) * 100U /
-		UINT16_MAX;
-
-	if (error) {
-		//printk("control_apply_zone_control: error state active; braking\n");
-		return motor_brake_duty(100);
-	}
-	if (brake_pct > 0U) {
-		//printk("control_apply_zone_control: brake active (%u%%); braking\n", brake_pct);
-		return motor_brake_duty(brake_pct);
-	}
-
-	int duty = throttle_duty(ws->throttle);
-	int rc = motor_forward();
-	//printk("control_apply_zone_control: throttle=%d duty=%d%%\n", ws->throttle, duty);
-
-	return rc ? rc : motor_duty(duty);
 }
 
 static struct spid hold_pid_l;
@@ -259,6 +209,9 @@ static void control_thread(void *p1, void *p2, void *p3)
 	bool feedback_error_reported = !encoder_feedback_available;
 
 	while (1) {
+		edf_deadline_at_uptime_ms(k_current_get(),
+					  next + CONTROL_PERIOD_MS,
+					  EDF_TIE_MOTOR_CONTROL);
 		bool got_frame = state_wait_wheel_frame(K_TIMEOUT_ABS_MS(next));
 		bool tick = k_uptime_get() >= next;
 		int64_t now = k_uptime_get();
@@ -397,13 +350,19 @@ static void control_thread(void *p1, void *p2, void *p3)
 }
 
 #define CONTROL_STACK_SIZE 1536
-#define CONTROL_PRIORITY 3
-
 K_THREAD_DEFINE(control_tid, CONTROL_STACK_SIZE, control_thread,
-		NULL, NULL, NULL, CONTROL_PRIORITY, 0, SYS_FOREVER_MS);
+		NULL, NULL, NULL, EDF_THREAD_PRIORITY, 0, SYS_FOREVER_MS);
+
+void control_schedule_frame(void)
+{
+	edf_deadline_after_ms(control_tid, CONTROL_PERIOD_MS,
+			      EDF_TIE_MOTOR_CONTROL);
+}
 
 void control_start(bool encoder_available)
 {
 	encoder_feedback_available = encoder_available;
+	edf_deadline_after_ms(control_tid, CONTROL_PERIOD_MS,
+			      EDF_TIE_MOTOR_CONTROL);
 	k_thread_start(control_tid);
 }

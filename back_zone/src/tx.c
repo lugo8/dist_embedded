@@ -9,13 +9,13 @@
 #include <zephyr/sys/printk.h>
 #include <zephyr/sys/atomic.h>
 
+#include "edf.h"
 #include "io_status.h"
 #include "protocol.h"
 
 #define CAN_BUS_COUNT 2
 #define HEARTBEAT_PERIOD_MS 20
 #define HEARTBEAT_TX_STACK_SIZE 1024
-#define HEARTBEAT_TX_PRIORITY 6
 
 static const struct device *const can_dev[CAN_BUS_COUNT] = {
 	DEVICE_DT_GET(DT_NODELABEL(can_a)),
@@ -72,7 +72,7 @@ static void send_heartbeat(uint8_t seq)
 {
 	struct can_frame frame = {
 		.id = MSG_HB_DRIVETRAIN,
-		.dlc = CAN_PAYLOAD_SIZE,
+		.dlc = MSG_HEARTBEAT_DLC,
 		.flags = 0,
 	};
 
@@ -103,12 +103,15 @@ static void heartbeat_tx_thread(void *p1, void *p2, void *p3)
 		send_heartbeat(seq++);
 
 		next += HEARTBEAT_PERIOD_MS;
+		edf_deadline_at_uptime_ms(k_current_get(),
+					  next + HEARTBEAT_PERIOD_MS,
+					  EDF_TIE_HEARTBEAT);
 		k_sleep(K_TIMEOUT_ABS_MS(next));
 	}
 }
 
 K_THREAD_DEFINE(heartbeat_tx_tid, HEARTBEAT_TX_STACK_SIZE, heartbeat_tx_thread,
-		NULL, NULL, NULL, HEARTBEAT_TX_PRIORITY, 0, SYS_FOREVER_MS);
+		NULL, NULL, NULL, EDF_THREAD_PRIORITY, 0, SYS_FOREVER_MS);
 
 int tx_start(void)
 {
@@ -133,6 +136,8 @@ int tx_start(void)
 		}
 	}
 
+	edf_deadline_after_ms(heartbeat_tx_tid, HEARTBEAT_PERIOD_MS,
+			      EDF_TIE_HEARTBEAT);
 	k_thread_start(heartbeat_tx_tid);
 	return 0;
 }

@@ -180,6 +180,12 @@ int io_status_set_can_degraded(uint8_t bus, bool degraded)
 	return rc;
 }
 
+bool io_status_is_can_degraded(uint8_t bus)
+{
+	return bus >= ARRAY_SIZE(can_degraded) ||
+	       (atomic_get(&degraded_mask) & BIT(bus)) != 0;
+}
+
 /* Hazard phase source:
  *  - RPi alive (heartbeat on either bus): follow its BLINKER messages, so every zone shows the RPi's phase
  *  - RPi dead: show the pattern locked to the front zone's heartbeat seq (blinker_hazard_sync), so the

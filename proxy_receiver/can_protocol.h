@@ -22,14 +22,11 @@
 
 #define CAN_ID_BLINKER        0x06 // Cockpit -> Steering, Drivetrain
 
-// every message is DLC 8; bytes after the last defined one are reserved and must be 0
+// DLCs include only defined payload bytes.
 #define CAN_DLC_ZONE_CTRL      8
-#define CAN_DLC_HB             8
-#define CAN_DLC_FORCE_FEEDBACK 8
-#define CAN_DLC_BLINKER        8
-
-#define HB_USED_BYTES    2 // B0 flags, B1 seq
-#define FORCE_USED_BYTES 3 // B1,B0 force, B2 seq
+#define CAN_DLC_HB             2
+#define CAN_DLC_FORCE_FEEDBACK 3
+#define CAN_DLC_BLINKER        3
 
 struct zone_ctrl {
 	uint8_t buttons;
@@ -72,17 +69,6 @@ static inline void ctrl_encode(const struct zone_ctrl *c, uint8_t d[CAN_DLC_ZONE
 	d[7] = c->seq;
 }
 
-// true if d[from..7] are all 0 (the reserved padding)
-static inline bool pad_is_zero(const uint8_t *d, int from)
-{
-	for (int i = from; i < 8; i++) {
-		if (d[i]) {
-			return false;
-		}
-	}
-	return true;
-}
-
 static inline void hb_encode(const struct heartbeat *h, uint8_t d[CAN_DLC_HB])
 {
 	for (int i = 0; i < CAN_DLC_HB; i++) {
@@ -95,7 +81,7 @@ static inline void hb_encode(const struct heartbeat *h, uint8_t d[CAN_DLC_HB])
 
 static inline bool hb_decode(const uint8_t *d, uint8_t dlc, struct heartbeat *out)
 {
-	if (dlc != CAN_DLC_HB || (d[0] & HB_RESERVED_MASK) || !pad_is_zero(d, HB_USED_BYTES)) {
+	if (dlc != CAN_DLC_HB || (d[0] & HB_RESERVED_MASK)) {
 		return false;
 	}
 	out->can_a_degraded = (d[0] >> HB_BIT_CAN_A_DEGRADED) & 1;
@@ -106,7 +92,7 @@ static inline bool hb_decode(const uint8_t *d, uint8_t dlc, struct heartbeat *ou
 
 static inline bool force_decode(const uint8_t *d, uint8_t dlc, struct force_feedback *out)
 {
-	if (dlc != CAN_DLC_FORCE_FEEDBACK || !pad_is_zero(d, FORCE_USED_BYTES)) {
+	if (dlc != CAN_DLC_FORCE_FEEDBACK) {
 		return false;
 	}
 	out->force = (int16_t)(((uint16_t)d[1] << 8) | d[0]);

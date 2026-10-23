@@ -24,6 +24,24 @@ bool is_known_msg_type(uint16_t id)
 	}
 }
 
+uint8_t message_dlc(uint16_t id)
+{
+	switch (id) {
+	case MSG_ZONE_CTRL:
+		return MSG_ZONE_CTRL_DLC;
+	case MSG_HB_COCKPIT:
+	case MSG_HB_STEERING:
+	case MSG_HB_DRIVETRAIN:
+		return MSG_HEARTBEAT_DLC;
+	case MSG_FORCE_FEEDBACK:
+		return MSG_FORCE_FEEDBACK_DLC;
+	case MSG_BLINKERS:
+		return MSG_BLINKERS_DLC;
+	default:
+		return 0;
+	}
+}
+
 const char *zone_state_name(uint8_t zone_state)
 {
 	switch (zone_state) {
@@ -42,12 +60,12 @@ const char *zone_state_name(uint8_t zone_state)
 	}
 }
 
-bool wheel_frame_valid(const uint8_t payload[CAN_PAYLOAD_SIZE])
+bool wheel_frame_valid(const uint8_t payload[CAN_MAX_PAYLOAD_SIZE])
 {
 	return (payload[0] & CTRL_RESERVED_MASK) == 0;
 }
 
-void decode_wheel_state(const uint8_t payload[CAN_PAYLOAD_SIZE], struct wheel_state *out)
+void decode_wheel_state(const uint8_t payload[CAN_MAX_PAYLOAD_SIZE], struct wheel_state *out)
 {
 	out->left_btn = (payload[0] >> CTRL_BTN_LEFT) & 1;
 	out->btn_y = (payload[0] >> CTRL_BTN_Y) & 1;
@@ -60,7 +78,7 @@ void decode_wheel_state(const uint8_t payload[CAN_PAYLOAD_SIZE], struct wheel_st
 	out->seq = payload[7];
 }
 
-void decode_heartbeat(const uint8_t payload[CAN_PAYLOAD_SIZE], struct heartbeat *out)
+void decode_heartbeat(const uint8_t payload[CAN_MAX_PAYLOAD_SIZE], struct heartbeat *out)
 {
 	out->can_a_degraded = (payload[0] >> HB_CAN_A_DEGRADED) & 1;
 	out->can_b_degraded = (payload[0] >> HB_CAN_B_DEGRADED) & 1;
@@ -68,9 +86,9 @@ void decode_heartbeat(const uint8_t payload[CAN_PAYLOAD_SIZE], struct heartbeat 
 }
 
 void encode_heartbeat(uint8_t seq, bool can_a_degraded, bool can_b_degraded,
-		      uint8_t payload[CAN_PAYLOAD_SIZE])
+		      uint8_t payload[CAN_MAX_PAYLOAD_SIZE])
 {
-	for (size_t i = 0; i < CAN_PAYLOAD_SIZE; i++) {
+	for (size_t i = 0; i < CAN_MAX_PAYLOAD_SIZE; i++) {
 		payload[i] = 0;
 	}
 
@@ -79,14 +97,14 @@ void encode_heartbeat(uint8_t seq, bool can_a_degraded, bool can_b_degraded,
 	payload[1] = seq;
 }
 
-void decode_force_feedback(const uint8_t payload[CAN_PAYLOAD_SIZE],
+void decode_force_feedback(const uint8_t payload[CAN_MAX_PAYLOAD_SIZE],
 			   struct force_feedback *out)
 {
 	out->force = decode_i16_be(payload[1], payload[0]);
 	out->seq = payload[2];
 }
 
-bool decode_blinkers(const uint8_t payload[CAN_PAYLOAD_SIZE],
+bool decode_blinkers(const uint8_t payload[CAN_MAX_PAYLOAD_SIZE],
 		     struct blinkers_message *out)
 {
 	if (payload[0] > BLINKERS_HAZARD || payload[1] > 1) {
@@ -99,7 +117,7 @@ bool decode_blinkers(const uint8_t payload[CAN_PAYLOAD_SIZE],
 	return true;
 }
 
-uint8_t message_sequence(uint16_t id, const uint8_t payload[CAN_PAYLOAD_SIZE])
+uint8_t message_sequence(uint16_t id, const uint8_t payload[CAN_MAX_PAYLOAD_SIZE])
 {
 	switch (id) {
 	case MSG_ZONE_CTRL:
