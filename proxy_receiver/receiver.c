@@ -554,6 +554,8 @@ int main(int argc, char **argv) {
 
     uint8_t data[CAN_DLC_ZONE_CTRL];
     ctrl_encode(&c, data);
+    printf("%10.3f ZONE_CTRL seq=%u steer=%d thr=%d brk=%d btns=0x%02X\n", now_ns() / 1e6,
+           (unsigned) c.seq, c.steering, c.throttle, c.brake, (unsigned) c.buttons);
     gpio_put(PIN_CMD_TX, 1);           // CMD_TX is high while we write to the buses
     can_send_both(CAN_ID_ZONE_CTRL, data, CAN_DLC_ZONE_CTRL);
     gpio_put(PIN_CMD_TX, 0);
