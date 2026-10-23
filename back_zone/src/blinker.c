@@ -12,9 +12,17 @@
 #include "io_status.h"
 #include "protocol.h"
 
-#define ERROR_BLINK_ON_MS 1000
-#define ERROR_BLINK_OFF_MS 1000
+#define ERROR_BLINK_ON_MS 500 /* R2.4: 1 Hz +-10 % */
+#define ERROR_BLINK_OFF_MS 500
 #define BLINK_TICK_MS 10
+/* No-RPi hazard blink: phase-locked to the front zone's 20 ms heartbeat seq.
+ * 25 beats = 500 ms per half period (1 Hz). Both zones derive the phase from
+ * the same seq and flip when that heartbeat is sent / received, so the edges
+ * match to well under 1 ms. 256 is not a multiple of 25, so once per wrap
+ * (5.12 s) one half period is longer; both zones still agree.
+ */
+#define HAZARD_BEATS_PER_HALF 25
+#define HAZARD_SYNC_STALE_MS 100 /* 5 missed heartbeats: free-run instead */
 #define BLINK_THREAD_STACK_SIZE 768
 #define BLINK_THREAD_PRIORITY 5
 
@@ -22,6 +30,13 @@ static const struct gpio_dt_spec rl = GPIO_DT_SPEC_GET(DT_NODELABEL(rl), gpios);
 static const struct gpio_dt_spec rr = GPIO_DT_SPEC_GET(DT_NODELABEL(rr), gpios);
 
 static atomic_t remote_led_mask;
+static K_MUTEX_DEFINE(led_mutex);
+static atomic_t hazard_phase_on;
+static atomic_t hazard_sync_valid;
+static atomic_t hazard_sync_ms;
+/* free-run fallback state, only touched under led_mutex */
+static bool free_run_on;
+static int64_t free_run_next_ms;
 
 static int set_leds(bool left, bool right)
 {
@@ -41,32 +56,73 @@ static int set_leds(bool left, bool right)
 	return rc;
 }
 
+/* Called from the BLINKER rx handler and the blink thread; the lock stops
+ * the thread from writing a stale mask over a fresh one.
+ */
+static void apply_remote_mask(void)
+{
+	k_mutex_lock(&led_mutex, K_FOREVER);
+	uint8_t led_mask = atomic_get(&remote_led_mask);
+
+	(void)set_leds((led_mask & BIT(0)) != 0, (led_mask & BIT(1)) != 0);
+	k_mutex_unlock(&led_mutex);
+}
+
+static bool hazard_synced(void)
+{
+	return atomic_get(&hazard_sync_valid) &&
+	       (uint32_t)(k_uptime_get_32() - (uint32_t)atomic_get(&hazard_sync_ms)) <
+		       HAZARD_SYNC_STALE_MS;
+}
+
+/* Write the no-RPi hazard pattern. Locked so the thread cannot overwrite an
+ * edge with a phase it read just before it.
+ */
+static void apply_hazard_leds(void)
+{
+	k_mutex_lock(&led_mutex, K_FOREVER);
+	bool on;
+
+	if (hazard_synced()) {
+		on = atomic_get(&hazard_phase_on);
+	} else { /* partner HB gone: free-run */
+		int64_t now = k_uptime_get();
+
+		if (now >= free_run_next_ms) {
+			free_run_on = !free_run_on;
+			free_run_next_ms = now + (free_run_on ? ERROR_BLINK_ON_MS :
+								ERROR_BLINK_OFF_MS);
+		}
+		on = free_run_on;
+	}
+	(void)set_leds(on, on);
+	k_mutex_unlock(&led_mutex);
+}
+
+void blinker_hazard_sync(uint8_t hb_seq)
+{
+	bool on = (hb_seq / HAZARD_BEATS_PER_HALF) & 1;
+
+	atomic_set(&hazard_sync_ms, k_uptime_get_32());
+	atomic_set(&hazard_sync_valid, 1);
+	/* a missed edge frame is fixed by the next heartbeat, 20 ms later */
+	if (atomic_set(&hazard_phase_on, on) != on &&
+	    io_status_blinker_hazard_override()) {
+		apply_hazard_leds();
+	}
+}
+
 static void blinker_thread(void *p1, void *p2, void *p3)
 {
 	ARG_UNUSED(p1);
 	ARG_UNUSED(p2);
 	ARG_UNUSED(p3);
 
-	bool hazard_leds_on = false;
-	int64_t hazard_next_ms = 0;
-
 	while (1) {
 		if (io_status_blinker_hazard_override()) {
-			int64_t now = k_uptime_get();
-
-			if (now >= hazard_next_ms) {
-				hazard_leds_on = !hazard_leds_on;
-				(void)set_leds(hazard_leds_on, hazard_leds_on);
-				hazard_next_ms = now + (hazard_leds_on ?
-					ERROR_BLINK_ON_MS : ERROR_BLINK_OFF_MS);
-			}
+			apply_hazard_leds();
 		} else {
-			hazard_leds_on = false;
-			hazard_next_ms = 0;
-			uint8_t led_mask = atomic_get(&remote_led_mask);
-
-			(void)set_leds((led_mask & BIT(0)) != 0,
-				       (led_mask & BIT(1)) != 0);
+			apply_remote_mask();
 		}
 		k_sleep(K_MSEC(BLINK_TICK_MS));
 	}
@@ -120,5 +176,8 @@ int blinker_set_message(uint8_t new_state, bool leds_on)
 	}
 
 	atomic_set(&remote_led_mask, led_mask);
+	if (!io_status_blinker_hazard_override()) {
+		apply_remote_mask(); /* edge shows now, not on the next 10 ms tick */
+	}
 	return 0;
 }

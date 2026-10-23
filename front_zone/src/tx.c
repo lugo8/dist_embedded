@@ -9,6 +9,7 @@
 #include <zephyr/sys/printk.h>
 #include <zephyr/sys/atomic.h>
 
+#include "blinker.h"
 #include "io_status.h"
 #include "protocol.h"
 
@@ -100,7 +101,8 @@ static void heartbeat_tx_thread(void *p1, void *p2, void *p3)
 	int64_t next = k_uptime_get();
 
 	while (1) {
-		send_heartbeat(seq++);
+		send_heartbeat(seq);
+		blinker_hazard_sync(seq++);
 
 		next += HEARTBEAT_PERIOD_MS;
 		k_sleep(K_TIMEOUT_ABS_MS(next));
