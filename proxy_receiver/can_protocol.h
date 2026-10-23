@@ -22,11 +22,11 @@
 
 #define CAN_ID_BLINKER        0x06 // Cockpit -> Steering, Drivetrain
 
-// every message is DLC 8; bytes after the last defined one are reserved and must be 0
+// per-message DLC; FORCE_FEEDBACK is only decoded here, and receiver.c zero-pads short frames to 8 first
 #define CAN_DLC_ZONE_CTRL      8
-#define CAN_DLC_HB             8
+#define CAN_DLC_HB             2
 #define CAN_DLC_FORCE_FEEDBACK 8
-#define CAN_DLC_BLINKER        8
+#define CAN_DLC_BLINKER        3
 
 #define HB_USED_BYTES    2 // B0 flags, B1 seq
 #define FORCE_USED_BYTES 3 // B1,B0 force, B2 seq
