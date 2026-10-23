@@ -1,6 +1,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/sensor.h>
+#include <errno.h>
 #include "encoder.h"
 
 #define COUNTS_PER_REV 1320
@@ -13,13 +14,21 @@ static const struct device *enc_r = DEVICE_DT_GET(DT_NODELABEL(enc_right));
 static uint32_t prev_l, prev_r;
 static int32_t pos_l, pos_r;
 
-static uint32_t read_count(const struct device *dev)
+static int read_count(const struct device *dev, uint32_t *count)
 {
 	struct sensor_value v;
+	int rc = sensor_sample_fetch(dev);
 
-	sensor_sample_fetch(dev);
-	sensor_channel_get(dev, SENSOR_CHAN_ENCODER_COUNT, &v);
-	return (uint32_t)v.val1;
+	if (rc) {
+		return rc;
+	}
+	rc = sensor_channel_get(dev, SENSOR_CHAN_ENCODER_COUNT, &v);
+	if (rc) {
+		return rc;
+	}
+
+	*count = (uint32_t)v.val1;
+	return 0;
 }
 
 int encoder_init(void)
@@ -27,9 +36,19 @@ int encoder_init(void)
 	if (!device_is_ready(enc_l) || !device_is_ready(enc_r)) {
 		return -ENODEV;
 	}
-	prev_l = read_count(enc_l);
-	prev_r = read_count(enc_r);
-	return 0;
+	int rc = read_count(enc_l, &prev_l);
+
+	if (rc) {
+		return rc;
+	}
+	rc = read_count(enc_r, &prev_r);
+	if (rc) {
+		return rc;
+	}
+
+	pos_l = 0;
+	pos_r = 0;
+	return rc;
 }
 
 static int to_rpm(int32_t delta, int period_ms)
@@ -38,10 +57,23 @@ static int to_rpm(int32_t delta, int period_ms)
 }
 
 /* call at a fixed period; returns rpm since the last call */
-void encoder_rpm(int period_ms, int *left, int *right)
+int encoder_rpm(int period_ms, int *left, int *right)
 {
-	uint32_t l = read_count(enc_l);
-	uint32_t r = read_count(enc_r);
+	if (period_ms <= 0) {
+		return -EINVAL;
+	}
+
+	uint32_t l;
+	uint32_t r;
+	int rc = read_count(enc_l, &l);
+
+	if (rc) {
+		return rc;
+	}
+	rc = read_count(enc_r, &r);
+	if (rc) {
+		return rc;
+	}
 
 	/* tim2 is 32-bit, so unsigned subtraction handles the wrap */
 	int32_t dl = (int32_t)(l - prev_l);
@@ -62,6 +94,7 @@ void encoder_rpm(int period_ms, int *left, int *right)
 	*left = to_rpm(dl, period_ms);
 	/* right motor is mirrored, so forward counts down */
 	*right = -to_rpm(dr, period_ms);
+	return 0;
 }
 
 void encoder_position(int32_t *left, int32_t *right)

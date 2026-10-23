@@ -76,7 +76,7 @@ static void send_heartbeat(uint8_t seq)
 				  (void *)(intptr_t)bus);
 
 		if (rc) {
-			printk("can_send heartbeat on bus %c failed: %d\n", 'A' + bus, rc);
+			//printk("can_send heartbeat on bus %c failed: %d\n", 'A' + bus, rc);
 			atomic_set(&tx_failed[bus], 1);
 			io_status_set_can_degraded(bus, true);
 		}

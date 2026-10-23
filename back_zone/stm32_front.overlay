@@ -1,75 +1,93 @@
 /*
- * STM32 front (N2, steering zone) on nucleo_f401re
+ * STM32 back (drivetrain zone) on nucleo_f401re.
  *
- * Contents: dual MCP2515 CAN on SPI1 (unchanged from nucleo_f401re.overlay),
- * servo PWM, FL / FR blinker LEDs, RELAY_TX and ERR test points.
- *
- * Deliberately NOT carried over from app.overlay: encoders, motor PWM, ADC
- * current sensing, usart1 move (PA10 is the CAN A INT line here), i2c1,
- * pwm2, and the CAN_RX/CAN_TX/DEG test points.
- *
- * Pin changes versus the team spreadsheet (front column), and why:
- *   SRV      PC11 -> PA8   PC11 has no timer output on the F401, so it cannot do PWM
- *   FR       PA13 -> PC11  PA13 is SWDIO (debug), driving it as GPIO kills SWD
- *   RELAY_TX PA14 -> PC8   PA14 is SWCLK (debug), same problem
- * Update the spreadsheet / test-point board to match.
+ * CAN SPI and chip-select pins match the front board. PA13/PA14 are reserved
+ * for SWD. RL/RR use PC8/PB0 and avoid the error indicator on PA15. PA8
+ * provides the shared motor PWM signal for both H-bridges.
  */
-
 / {
 	aliases {
 		can-a = &can_a;
 		can-b = &can_b;
 	};
 
-	/* front blinkers */
-	blinkers {
+	rear_lights {
 		compatible = "gpio-leds";
-		fl: fl { gpios = <&gpiod 2 GPIO_ACTIVE_HIGH>; };    /* PD2,  spreadsheet row 10 */
-		fr: fr { gpios = <&gpioc 11 GPIO_ACTIVE_HIGH>; };   /* PC11, spreadsheet said PA13 */
+		rl: rl { gpios = <&gpioc 8 GPIO_ACTIVE_HIGH>; };   /* PC8 */
+		rr: rr { gpios = <&gpiob 0 GPIO_ACTIVE_HIGH>; };   /* PB0 */
 	};
 
 	zephyr,user {
-		/* 0: steering servo on TIM1_CH1 */
-		pwms = <&servo_pwm 1 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
+		pwms = <&motor_pwm 1 PWM_USEC(100) PWM_POLARITY_NORMAL>;
 
-		/* scope test point: toggles when the relay queues a forwarded frame */
-		tp-relay-tx-gpios = <&gpioc 8 GPIO_ACTIVE_HIGH>;    /* PC8, spreadsheet said PA14 */
-		/* high while this zone is in the error state */
-		tp-err-gpios = <&gpioa 15 GPIO_ACTIVE_HIGH>;        /* PA15, spreadsheet row 13 */
+		tp-pwm-set-gpios = <&gpioc 11 GPIO_ACTIVE_HIGH>;    /* PC11 */
+		dir-a-gpios = <&gpioc 9 GPIO_ACTIVE_HIGH>;          /* PC9 */
+		dir-b-gpios = <&gpiob 12 GPIO_ACTIVE_HIGH>;         /* PB12 */
+		tp-err-gpios = <&gpioa 15 GPIO_ACTIVE_HIGH>;        /* PA15 */
 		can-a-degraded-gpios = <&gpioc 10 GPIO_ACTIVE_HIGH>; /* PC10 */
 		can-b-degraded-gpios = <&gpioc 12 GPIO_ACTIVE_HIGH>; /* PC12 */
-		can-a-rx-gpios = <&gpiob 8 GPIO_ACTIVE_HIGH>;        /* PB8 */
-		can-b-rx-gpios = <&gpiob 9 GPIO_ACTIVE_HIGH>;        /* PB9 */
-		can-a-tx-gpios = <&gpioa 0 GPIO_ACTIVE_HIGH>;        /* PA0 */
-		can-b-tx-gpios = <&gpioa 1 GPIO_ACTIVE_HIGH>;        /* PA1 */
+		can-a-rx-gpios = <&gpioc 0 GPIO_ACTIVE_HIGH>;        /* PC0 */
+		can-b-rx-gpios = <&gpioc 1 GPIO_ACTIVE_HIGH>;        /* PC1 */
+		can-a-tx-gpios = <&gpioc 2 GPIO_ACTIVE_HIGH>;        /* PC2 */
+		can-b-tx-gpios = <&gpioc 3 GPIO_ACTIVE_HIGH>;        /* PC3 */
 	};
 };
 
-/* the board file puts i2c3 on PA8, which the servo needs */
+/* Free the pins used for encoder feedback and motor PWM. */
 &i2c3 { status = "disabled"; };
-
-/* I2C1 is not used. USART2 stays enabled for the ST-LINK USB virtual COM port. */
 &i2c1 { status = "disabled"; };
+&usart1 { status = "disabled"; };
+&adc1 { status = "disabled"; };
+&pwm2 { status = "disabled"; };
 &usart2 { status = "okay"; };
 
-/* servo on PA8 (D7). prescaler makes the timer count at 1 MHz so a 20 ms
- * period fits in the 16-bit counter (assumes 84 MHz timer clock) */
+/* Left encoder on PA0/PA1. */
+&timers2 {
+	status = "okay";
+
+	enc_left: qdec {
+		pinctrl-0 = <&tim2_ch1_pa0 &tim2_ch2_pa1>;
+		pinctrl-names = "default";
+		st,encoder-mode = <0x3>;
+		st,input-filter-level = <10>;
+		st,counts-per-revolution = <1>;
+		status = "okay";
+	};
+};
+
+/* Right encoder on PB4/PB5. CAN B interrupt is moved to PC4 to free PB5. */
+&timers3 {
+	status = "okay";
+
+	enc_right: qdec {
+		pinctrl-0 = <&tim3_ch1_pb4 &tim3_ch2_pb5>;
+		pinctrl-names = "default";
+		st,encoder-mode = <0x3>;
+		st,input-filter-level = <10>;
+		st,counts-per-revolution = <1>;
+		status = "okay";
+	};
+};
+
+&tim2_ch1_pa0 { bias-pull-up; };
+&tim2_ch2_pa1 { bias-pull-up; };
+&tim3_ch1_pb4 { bias-pull-up; };
+&tim3_ch2_pb5 { bias-pull-up; };
+
+/* TIM1_CH1/PA8 is the shared 10 kHz motor PWM output. */
 &timers1 {
 	status = "okay";
 	st,prescaler = <83>;
 
-	servo_pwm: pwm {
+	motor_pwm: pwm {
 		pinctrl-0 = <&tim1_ch1_pa8>;
 		pinctrl-names = "default";
 		status = "okay";
 	};
 };
 
-/* ---- CAN: unchanged from nucleo_f401re.overlay ---- */
-
 &spi1 {
 	status = "okay";
-	/* index 0 = CAN A on D10 (PB6), index 1 = CAN B on D9 (PC7) */
 	cs-gpios = <&gpiob 6 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>,
 		   <&gpioc 7 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 
@@ -78,7 +96,7 @@
 		reg = <0>;
 		spi-max-frequency = <1000000>;
 		int-gpios = <&gpioa 10 GPIO_ACTIVE_LOW>;  /* D2 */
-		osc-freq = <16000000>;                    /* match your crystal */
+		osc-freq = <16000000>;
 		bitrate = <500000>;
 		status = "okay";
 	};
@@ -87,7 +105,7 @@
 		compatible = "microchip,mcp2515";
 		reg = <1>;
 		spi-max-frequency = <1000000>;
-		int-gpios = <&gpiob 5 GPIO_ACTIVE_LOW>;   /* D4 */
+		int-gpios = <&gpioc 4 GPIO_ACTIVE_LOW>;    /* PC4 */
 		osc-freq = <16000000>;
 		bitrate = <500000>;
 		status = "okay";

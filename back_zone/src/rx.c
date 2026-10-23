@@ -9,13 +9,12 @@
 #include <zephyr/sys/printk.h>
 
 #include "blinker.h"
+#include "control.h"
 #include "io_status.h"
 #include "protocol.h"
-#include "servo.h"
 #include "state.h"
 
 #define RX_QUEUE_DEPTH 64
-#define WHEEL_STEER_MAX 900
 #define BUTTON_B_DOUBLE_PRESS_MS 500
 
 static const struct device *const can_dev[2] = {
@@ -147,18 +146,14 @@ static void handle_zone_control(const uint8_t payload[CAN_PAYLOAD_SIZE])
 	state_set_wheel_state(&ws);
 	io_status_note_control_received();
 
-	int angle = ((int)ws.steering - INT16_MIN) * WHEEL_STEER_MAX / UINT16_MAX;
-	int rc = servo_set_angle(angle);
+	handle_button_b(ws.self_test_btn);
+
+	int rc = control_apply_zone_control(&ws);
 
 	if (rc) {
-		printk("Servo PWM update failed: %d\n", rc);
+		printk("Immediate motor output update failed: %d\n", rc);
 		io_status_mark_error();
 	}
-	// printk("steer=%d throttle=%d brake=%d left_btn=%d right_btn=%d self_test_btn=%d btn_a=%d btn_y=%d\n",
-	//        ws.steering, ws.throttle, ws.brake, ws.left_btn, ws.right_btn,
-	//        ws.self_test_btn, ws.btn_a, ws.btn_y);
-
-	handle_button_b(ws.self_test_btn);
 }
 
 static void handle_frame(const struct rx_item *item)
@@ -189,21 +184,26 @@ static void handle_frame(const struct rx_item *item)
 
 	switch (frame->id) {
 	case MSG_ZONE_CTRL:
+		printk("zone control frame received on bus %c\n", 'A' + item->bus);
 		handle_zone_control(frame->data);
 		break;
 	case MSG_HB_COCKPIT:
+		//printk("cockpit heartbeat frame received on bus %c\n", 'A' + item->bus);
 		decode_heartbeat(frame->data, &hb);
 		state_set_hb_rpi(&hb);
 		break;
 	case MSG_HB_STEERING:
+		//printk("steering heartbeat frame received on bus %c\n", 'A' + item->bus);
 		decode_heartbeat(frame->data, &hb);
 		state_set_hb_steering(&hb);
 		break;
 	case MSG_HB_DRIVETRAIN:
+		//printk("drivetrain heartbeat frame received on bus %c\n", 'A' + item->bus);
 		decode_heartbeat(frame->data, &hb);
 		state_set_hb_drivetrain(&hb);
 		break;
 	case MSG_FORCE_FEEDBACK: {
+		printk("force feedback frame received on bus %c\n", 'A' + item->bus);
 		struct force_feedback feedback;
 
 		decode_force_feedback(frame->data, &feedback);
@@ -211,13 +211,14 @@ static void handle_frame(const struct rx_item *item)
 		break;
 	}
 	case MSG_BLINKERS: {
+		printk("blinkers frame received on bus %c\n", 'A' + item->bus);
 		struct blinkers_message message;
 
 		if (decode_blinkers(frame->data, &message)) {
 			int rc = blinker_set_message(message.state, message.leds_on);
 
 			if (rc) {
-				printk("Failed to update front blinkers: %d\n", rc);
+				printk("Failed to update rear blinkers: %d\n", rc);
 				io_status_mark_error();
 			}
 		} else {
@@ -237,6 +238,7 @@ static void rx_thread(void *p1, void *p2, void *p3)
 
 	while (1) {
 		k_msgq_get(&rx_q, &it, K_FOREVER);
+		printk("rx_thread: received frame 0x%03x on bus %c\n", it.frame.id, 'A' + it.bus);
 		handle_frame(&it);
 	}
 }

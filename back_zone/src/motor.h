@@ -1,10 +1,12 @@
 #pragma once
+
 #include <stdint.h>
 
 int motor_init(void);
-void motor_forward(void);
-void motor_reverse(void);
-void motor_duty(uint32_t left_pct, uint32_t right_pct);
-void motor_brake(void);
-void motor_brake_duty(uint32_t pct);
-void motor_coast(void);
+int motor_forward(void);
+int motor_reverse(void);
+int motor_duty(uint32_t duty_pct);
+int motor_brake(void);
+int motor_brake_duty(uint32_t pct);
+int motor_coast(void);
+int motor_stop(void);

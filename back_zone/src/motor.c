@@ -1,68 +1,150 @@
-#include <zephyr/kernel.h>
-#include <zephyr/drivers/pwm.h>
-#include <zephyr/drivers/gpio.h>
 #include "motor.h"
+
+#include <errno.h>
+
+#include <zephyr/device.h>
+#include <zephyr/devicetree.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/drivers/pwm.h>
+#include <zephyr/kernel.h>
+#include <zephyr/sys/util.h>
 
 #define USER DT_PATH(zephyr_user)
 
-static const struct pwm_dt_spec ena = PWM_DT_SPEC_GET_BY_IDX(USER, 1);
-static const struct pwm_dt_spec enb = PWM_DT_SPEC_GET_BY_IDX(USER, 2);
-static const struct gpio_dt_spec in1 = GPIO_DT_SPEC_GET(USER, in1_gpios);
-static const struct gpio_dt_spec in2 = GPIO_DT_SPEC_GET(USER, in2_gpios);
-static const struct gpio_dt_spec tp_pwm_set = GPIO_DT_SPEC_GET(USER, tp_pwm_set_gpios);
+static const struct pwm_dt_spec motor_pwm =
+	PWM_DT_SPEC_GET_BY_IDX(USER, 0);
+static const struct gpio_dt_spec dir_a = GPIO_DT_SPEC_GET(USER, dir_a_gpios);
+static const struct gpio_dt_spec dir_b = GPIO_DT_SPEC_GET(USER, dir_b_gpios);
+static const struct gpio_dt_spec pwm_set_pin =
+	GPIO_DT_SPEC_GET(USER, tp_pwm_set_gpios);
+
+static bool motor_ready;
+K_MUTEX_DEFINE(motor_lock);
+
+static int set_direction(bool a, bool b)
+{
+	int rc = gpio_pin_set_dt(&dir_a, a);
+
+	if (rc) {
+		return rc;
+	}
+
+	return gpio_pin_set_dt(&dir_b, b);
+}
+
+static int write_duty(uint32_t duty_pct)
+{
+	duty_pct = MIN(duty_pct, 100U);
+
+	int rc = pwm_set_pulse_dt(&motor_pwm,
+				  motor_pwm.period * duty_pct / 100U);
+	if (rc) {
+		return rc;
+	}
+
+	//printk("motor duty: %u%%\n", duty_pct);
+	return gpio_pin_toggle_dt(&pwm_set_pin);
+}
+
+static int coast_locked(void)
+{
+	return write_duty(0);
+}
+
+static int brake_duty_locked(uint32_t pct)
+{
+	int rc = set_direction(false, false);
+
+	return rc ? rc : write_duty(pct);
+}
 
 int motor_init(void)
 {
-	if (!pwm_is_ready_dt(&ena) || !pwm_is_ready_dt(&enb) ||
-	    !gpio_is_ready_dt(&in1) || !gpio_is_ready_dt(&in2) ||
-	    !gpio_is_ready_dt(&tp_pwm_set)) {
+	if (!pwm_is_ready_dt(&motor_pwm) ||
+	    !gpio_is_ready_dt(&dir_a) || !gpio_is_ready_dt(&dir_b) ||
+	    !gpio_is_ready_dt(&pwm_set_pin)) {
 		return -ENODEV;
 	}
-	gpio_pin_configure_dt(&in1, GPIO_OUTPUT_INACTIVE);
-	gpio_pin_configure_dt(&in2, GPIO_OUTPUT_INACTIVE);
-	gpio_pin_configure_dt(&tp_pwm_set, GPIO_OUTPUT_INACTIVE);
-	motor_coast();
-	return 0;
+
+	int rc = gpio_pin_configure_dt(&dir_a, GPIO_OUTPUT_INACTIVE);
+
+	if (rc) {
+		return rc;
+	}
+	rc = gpio_pin_configure_dt(&dir_b, GPIO_OUTPUT_INACTIVE);
+	if (rc) {
+		return rc;
+	}
+	rc = gpio_pin_configure_dt(&pwm_set_pin, GPIO_OUTPUT_INACTIVE);
+	if (rc) {
+		return rc;
+	}
+
+	k_mutex_lock(&motor_lock, K_FOREVER);
+	rc = coast_locked();
+	if (!rc) {
+		motor_ready = true;
+	}
+	k_mutex_unlock(&motor_lock);
+
+	return rc;
 }
 
-void motor_forward(void)
+int motor_forward(void)
 {
-	gpio_pin_set_dt(&in1, 1);
-	gpio_pin_set_dt(&in2, 0);
+	k_mutex_lock(&motor_lock, K_FOREVER);
+	int rc = set_direction(true, false);
+
+	k_mutex_unlock(&motor_lock);
+	return rc;
 }
 
-void motor_reverse(void)
+int motor_reverse(void)
 {
-	gpio_pin_set_dt(&in1, 0);
-	gpio_pin_set_dt(&in2, 1);
+	k_mutex_lock(&motor_lock, K_FOREVER);
+	int rc = set_direction(false, true);
+
+	k_mutex_unlock(&motor_lock);
+	return rc;
 }
 
-/* every duty change goes through here so PWM_SET toggles right after the timer write */
-void motor_duty(uint32_t left_pct, uint32_t right_pct)
+int motor_duty(uint32_t duty_pct)
 {
-	pwm_set_pulse_dt(&ena, ena.period * MIN(left_pct, 100) / 100);
-	pwm_set_pulse_dt(&enb, enb.period * MIN(right_pct, 100) / 100);
-	gpio_pin_toggle_dt(&tp_pwm_set);
+	k_mutex_lock(&motor_lock, K_FOREVER);
+	int rc = write_duty(duty_pct);
+
+	k_mutex_unlock(&motor_lock);
+	return rc;
 }
 
-/* both inputs low with enable fully on shorts the motor leads, so it stops fast.
- * in1 drops from 1 to 0 here when coming from forward, which gives dir_a an edge */
-void motor_brake(void)
+int motor_brake_duty(uint32_t pct)
 {
-	motor_brake_duty(100);
+	k_mutex_lock(&motor_lock, K_FOREVER);
+	int rc = brake_duty_locked(MIN(pct, 100U));
+
+	k_mutex_unlock(&motor_lock);
+	return rc;
 }
 
-/* same shorted-leads brake, but only for pct% of each pwm period (the rest coasts),
- * so the braking force scales with pct */
-void motor_brake_duty(uint32_t pct)
+int motor_brake(void)
 {
-	gpio_pin_set_dt(&in1, 0);
-	gpio_pin_set_dt(&in2, 0);
-	motor_duty(pct, pct);
+	return motor_brake_duty(100);
 }
 
-/* enable off disconnects the motor so it spins down on its own */
-void motor_coast(void)
+int motor_coast(void)
 {
-	motor_duty(0, 0);
+	k_mutex_lock(&motor_lock, K_FOREVER);
+	int rc = coast_locked();
+
+	k_mutex_unlock(&motor_lock);
+	return rc;
+}
+
+int motor_stop(void)
+{
+	if (!motor_ready) {
+		return 0;
+	}
+
+	return motor_brake();
 }

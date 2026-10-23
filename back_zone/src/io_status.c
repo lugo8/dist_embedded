@@ -6,9 +6,11 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/sys/atomic.h>
+#include <zephyr/sys/printk.h>
 #include <zephyr/sys/util.h>
 
 #include "blinker.h"
+#include "motor.h"
 #include "protocol.h"
 #include "state.h"
 
@@ -80,6 +82,11 @@ void io_status_enter_error(uint8_t zone_state)
 	atomic_set(&error_active, 1);
 	state_set_zone_state(zone_state);
 	(void)gpio_pin_set_dt(&error_pin, 1);
+	int rc = motor_stop();
+
+	if (rc) {
+		printk("Motor failsafe stop failed: %d\n", rc);
+	}
 	if (atomic_get(&blinker_ready)) {
 		blinker_set_error_mode(true);
 	}

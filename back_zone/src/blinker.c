@@ -18,25 +18,25 @@
 #define BLINK_THREAD_STACK_SIZE 768
 #define BLINK_THREAD_PRIORITY 5
 
-static const struct gpio_dt_spec fl = GPIO_DT_SPEC_GET(DT_NODELABEL(fl), gpios);
-static const struct gpio_dt_spec fr = GPIO_DT_SPEC_GET(DT_NODELABEL(fr), gpios);
+static const struct gpio_dt_spec rl = GPIO_DT_SPEC_GET(DT_NODELABEL(rl), gpios);
+static const struct gpio_dt_spec rr = GPIO_DT_SPEC_GET(DT_NODELABEL(rr), gpios);
 
 static atomic_t remote_led_mask;
 static atomic_t error_mode = ATOMIC_INIT(0);
 
 static int set_leds(bool left, bool right)
 {
-	int rc = gpio_pin_set_dt(&fl, left);
+	int rc = gpio_pin_set_dt(&rl, left);
 
 	if (rc) {
 		io_status_mark_error();
-		printk("Front-left blinker GPIO failed: %d\n", rc);
+		printk("Rear-left blinker GPIO failed: %d\n", rc);
 		return rc;
 	}
-	rc = gpio_pin_set_dt(&fr, right);
+	rc = gpio_pin_set_dt(&rr, right);
 	if (rc) {
 		io_status_mark_error();
-		printk("Front-right blinker GPIO failed: %d\n", rc);
+		printk("Rear-right blinker GPIO failed: %d\n", rc);
 	}
 
 	return rc;
@@ -74,17 +74,17 @@ K_THREAD_DEFINE(blinker_tid, BLINK_THREAD_STACK_SIZE, blinker_thread,
 
 int blinker_init(void)
 {
-	if (!gpio_is_ready_dt(&fl) || !gpio_is_ready_dt(&fr)) {
+	if (!gpio_is_ready_dt(&rl) || !gpio_is_ready_dt(&rr)) {
 		return -ENODEV;
 	}
 
-	int rc = gpio_pin_configure_dt(&fl, GPIO_OUTPUT_INACTIVE);
+	int rc = gpio_pin_configure_dt(&rl, GPIO_OUTPUT_INACTIVE);
 
 	if (rc) {
 		return rc;
 	}
 
-	rc = gpio_pin_configure_dt(&fr, GPIO_OUTPUT_INACTIVE);
+	rc = gpio_pin_configure_dt(&rr, GPIO_OUTPUT_INACTIVE);
 	if (rc) {
 		return rc;
 	}

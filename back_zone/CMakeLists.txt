@@ -12,10 +12,12 @@ target_sources(app PRIVATE
 	src/state.c
 	src/rx.c
 	src/tx.c
+	src/control.c
+	src/pid.c
 	src/blinker.c
 	src/io_status.c
-	# src/encoder.c
-	src/servo.c
-	# src/motor.c
+	src/encoder.c
+	# src/servo.c
+	src/motor.c
 	# src/current.c
 )

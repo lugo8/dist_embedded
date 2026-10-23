@@ -4,18 +4,12 @@
 #include <zephyr/sys/printk.h>
 
 #include "blinker.h"
-//#include "control.h"
-//#include "current.h"
-//#include "inject.h"
+#include "control.h"
+#include "encoder.h"
 #include "io_status.h"
+#include "motor.h"
 #include "rx.h"
-#include "servo.h"
 #include "tx.h"
-
-/* 1: keyboard injector over the PA9<->PA10 jumper, 0: real Pi on usart1 */
-#define USE_INJECTOR 0
-
-// static const struct device *const pi_uart = DEVICE_DT_GET(DT_NODELABEL(usart1));
 
 static const struct device *const can_dev[2] = {
 	DEVICE_DT_GET(DT_NODELABEL(can_a)),
@@ -24,7 +18,7 @@ static const struct device *const can_dev[2] = {
 
 int main(void)
 {
-	printk("front zone boot\n");
+	printk("back zone boot\n");
 
 	int rc = io_status_init();
 	if (rc) {
@@ -44,13 +38,21 @@ int main(void)
 		return 0;
 	}
 
-	/* current zero is measured inside current_init(), so the motors must be
-	 * coasting and the servo undriven until it returns */
-	if (servo_init()) {
-		printk("peripheral init failed\n");
+	rc = motor_init();
+	if (rc) {
+		printk("motor init failed: %d\n", rc);
 		io_status_mark_error();
 		return 0;
 	}
+	bool encoder_available = false;
+#if ENABLE_ENCODER_FEEDBACK
+	encoder_available = encoder_init() == 0;
+	if (!encoder_available) {
+		printk("encoder unavailable; motor control will use feed-forward only\n");
+	}
+#else
+	printk("encoder PID disabled; using feed-forward motor control\n");
+#endif
 	rc = blinker_init();
 	if (rc) {
 		printk("blinker init failed: %d\n", rc);
@@ -65,6 +67,7 @@ int main(void)
 		io_status_mark_error();
 		return 0;
 	}
+	control_start(encoder_available);
 
 	rc = tx_start();
 	if (rc) {
@@ -72,11 +75,7 @@ int main(void)
 		io_status_mark_error();
 		return 0;
 	}
-#if USE_INJECTOR
-	inject_start(); /* TEMP: stands in for the Pi, needs PA9<->PA10 jumper */
-#endif
-
-	printk("front zone up\n");
+	printk("back zone up\n");
 
 	while (1) {
 		k_sleep(K_SECONDS(1));
