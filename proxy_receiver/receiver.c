@@ -51,6 +51,7 @@
 #define BLINK_TURN_HALF_MS   500 // turn signal: time between edges (1 Hz, R2.4)
 #define BLINK_HAZARD_HALF_MS 500 // hazard: time between edges (Lab 2 blinker.c used 250)
 #define BLINK_MIN_GAP_MS  20    // never send BLINKER closer together than this
+#define BLINK_REFRESH_MS  20    // re-send the current BLINKER state this often, so a lost/late edge frame heals
 #define LEFT_THRESHOLD    299   // wheel angle 0..900, from Lab 2 blinker.c
 #define RIGHT_THRESHOLD   601
 
@@ -302,17 +303,20 @@ static void *blink_thread(void *arg) {
 
     pthread_mutex_lock(&state_lock);
     int send = 0;
+    int edge = 0; // a real state change / phase flip, as opposed to a refresh of the current state
     if (bl_dirty && now - bl_last_tx >= BLINK_MIN_GAP_MS * NS_PER_MS) {
-      send = 1;                                    // state changed
+      send = edge = 1;                             // state changed
     } else if (!bl_dirty && now >= bl_next_toggle) {
       if (bl_state != BLINK_OFF) bl_phase ^= 1;    // half period passed: flip lamps on/off
-      send = 1;
+      send = edge = 1;
+    } else if (!bl_dirty && now - bl_last_tx >= BLINK_REFRESH_MS * NS_PER_MS) {
+      send = 1;                                    // refresh: same state/phase, new seq
     }
     struct blinker_msg m = { .state = bl_state, .phase = bl_phase };
     if (send) {
       bl_dirty = 0;
       bl_last_tx = now;
-      bl_next_toggle = now + bl_half_ns();
+      if (edge) bl_next_toggle = now + bl_half_ns(); // a refresh must not push the next flip back
     }
     pthread_mutex_unlock(&state_lock);
 

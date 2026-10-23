@@ -216,6 +216,9 @@ static void handle_frame(const struct rx_item *item)
 		struct blinkers_message message;
 
 		if (decode_blinkers(frame->data, &message)) {
+			/* TEMP debug: when each BLINKER edge arrives, to compare against the other zone */
+			printk("%s BLK rx t=%u bus=%c state=%u on=%d\n", "FRONT", k_uptime_get_32(),
+			       'A' + item->bus, message.state, message.leds_on);
 			int rc = blinker_set_message(message.state, message.leds_on);
 
 			if (rc) {

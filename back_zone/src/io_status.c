@@ -186,8 +186,13 @@ int io_status_set_can_degraded(uint8_t bus, bool degraded)
 	return rc;
 }
 
+/* Hazard phase source:
+ *  - RPi alive (heartbeat on either bus): follow its BLINKER messages, so every zone shows the RPi's phase
+ *  - RPi dead: show the pattern locked to the front zone's heartbeat seq (blinker_hazard_sync), so the
+ *    zones agree with each other. Free-runs if that heartbeat is gone too.
+ * Our own CAN degradation is deliberately not a condition: it must not make this zone leave the RPi's phase.
+ */
 bool io_status_blinker_hazard_override(void)
 {
-	return atomic_get(&degraded_mask) == (BIT(0) | BIT(1)) ||
-	       state_rpi_heartbeat_missing_on_both_buses();
+	return state_rpi_heartbeat_missing_on_both_buses();
 }

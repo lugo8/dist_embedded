@@ -69,6 +69,10 @@ static bool bus_is_degraded(int bus)
 	return degraded;
 }
 
+/* TEMP debug: per-step times of the last heartbeat, printed only if it was slow */
+static int64_t dbg_deg_ms[CAN_BUS_COUNT];
+static int64_t dbg_tx_ms[CAN_BUS_COUNT];
+
 static void send_heartbeat(uint8_t seq)
 {
 	struct can_frame frame = {
@@ -77,11 +81,22 @@ static void send_heartbeat(uint8_t seq)
 		.flags = 0,
 	};
 
-	encode_heartbeat(seq, bus_is_degraded(0), bus_is_degraded(1), frame.data);
+	bool deg[CAN_BUS_COUNT];
 
 	for (int bus = 0; bus < CAN_BUS_COUNT; bus++) {
+		int64_t t = k_uptime_get();
+
+		deg[bus] = bus_is_degraded(bus);
+		dbg_deg_ms[bus] = k_uptime_get() - t;
+	}
+	encode_heartbeat(seq, deg[0], deg[1], frame.data);
+
+	for (int bus = 0; bus < CAN_BUS_COUNT; bus++) {
+		int64_t t = k_uptime_get();
 		int rc = can_send(can_dev[bus], &frame, K_MSEC(5), heartbeat_tx_cb,
 				  (void *)(intptr_t)bus);
+
+		dbg_tx_ms[bus] = k_uptime_get() - t;
 
 		if (rc) {
 			printk("can_send heartbeat on bus %c failed: %d\n", 'A' + bus, rc);
@@ -101,8 +116,20 @@ static void heartbeat_tx_thread(void *p1, void *p2, void *p3)
 	int64_t next = k_uptime_get();
 
 	while (1) {
+		int64_t start = k_uptime_get();
+		int64_t late = start - next; /* how long after its due time the thread woke */
+
 		send_heartbeat(seq);
 		blinker_hazard_sync(seq++);
+
+		int64_t took = k_uptime_get() - start;
+
+		if (late > 5 || took > 10) { /* TEMP debug: only print the slow ones */
+			printk("HB slow seq=%u late=%d took=%d deg=%d/%d tx=%d/%d\n",
+			       (unsigned)(uint8_t)(seq - 1), (int)late, (int)took,
+			       (int)dbg_deg_ms[0], (int)dbg_deg_ms[1],
+			       (int)dbg_tx_ms[0], (int)dbg_tx_ms[1]);
+		}
 
 		next += HEARTBEAT_PERIOD_MS;
 		k_sleep(K_TIMEOUT_ABS_MS(next));

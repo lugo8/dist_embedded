@@ -16,14 +16,14 @@
 #define ERROR_BLINK_OFF_MS 500
 #define BLINK_TICK_MS 10
 /* No-RPi hazard blink: phase-locked to the front zone's 20 ms heartbeat seq.
- * 25 beats = 500 ms per half period (1 Hz). Both zones derive the phase from
- * the same seq and flip when that heartbeat is sent / received, so the edges
- * match to well under 1 ms. 256 is not a multiple of 25, so once per wrap
- * (5.12 s) one half period is longer; both zones still agree.
+ * The 8-bit seq is cut into 10 half periods of 25.6 beats (25 or 26 beats,
+ * 500 or 520 ms, ~0.98 Hz). 10 is even, so the phase also carries across the
+ * seq wrap with no long half period. Both zones flip when that heartbeat is
+ * sent / received, so the edges match to well under 1 ms.
  */
-#define HAZARD_BEATS_PER_HALF 25
+#define HAZARD_HALVES_PER_WRAP 10
 #define HAZARD_SYNC_STALE_MS 100 /* 5 missed heartbeats: free-run instead */
-#define BLINK_THREAD_STACK_SIZE 768
+#define BLINK_THREAD_STACK_SIZE 1024
 #define BLINK_THREAD_PRIORITY 5
 
 static const struct gpio_dt_spec fl = GPIO_DT_SPEC_GET(DT_NODELABEL(fl), gpios);
@@ -101,7 +101,7 @@ static void apply_hazard_leds(void)
 
 void blinker_hazard_sync(uint8_t hb_seq)
 {
-	bool on = (hb_seq / HAZARD_BEATS_PER_HALF) & 1;
+	bool on = ((hb_seq * HAZARD_HALVES_PER_WRAP) >> 8) & 1;
 
 	atomic_set(&hazard_sync_ms, k_uptime_get_32());
 	atomic_set(&hazard_sync_valid, 1);
@@ -118,8 +118,17 @@ static void blinker_thread(void *p1, void *p2, void *p3)
 	ARG_UNUSED(p2);
 	ARG_UNUSED(p3);
 
+	static int dbg_override = -1; /* TEMP debug: print on change only */
+
 	while (1) {
-		if (io_status_blinker_hazard_override()) {
+		int ovr = io_status_blinker_hazard_override();
+
+		if (ovr != dbg_override) {
+			dbg_override = ovr;
+			printk("FRONT BLK override=%d synced=%d t=%u\n", ovr, hazard_synced(),
+			       k_uptime_get_32());
+		}
+		if (ovr) {
 			apply_hazard_leds();
 		} else {
 			apply_remote_mask();
