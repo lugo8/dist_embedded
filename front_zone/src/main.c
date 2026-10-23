@@ -4,6 +4,7 @@
 #include <zephyr/sys/printk.h>
 
 #include "blinker.h"
+#include "edf.h"
 //#include "control.h"
 //#include "current.h"
 //#include "inject.h"
@@ -25,6 +26,7 @@ static const struct device *const can_dev[2] = {
 int main(void)
 {
 	printk("front zone boot\n");
+	edf_deadline_after_ms(k_current_get(), EDF_MAIN_DEADLINE_MS, EDF_TIE_MAIN);
 
 	int rc = io_status_init();
 	if (rc) {
@@ -77,6 +79,8 @@ int main(void)
 	printk("front zone up\n");
 
 	while (1) {
+		edf_deadline_after_ms(k_current_get(), EDF_MAIN_DEADLINE_MS,
+				      EDF_TIE_MAIN);
 		k_sleep(K_SECONDS(1));
 	}
 

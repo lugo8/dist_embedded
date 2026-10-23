@@ -10,6 +10,7 @@
 #include <zephyr/sys/util.h>
 
 #include "io_status.h"
+#include "edf.h"
 #include "protocol.h"
 
 #define ERROR_BLINK_ON_MS 500 /* R2.4: 1 Hz +-10 % */
@@ -24,7 +25,6 @@
 #define HAZARD_HALVES_PER_WRAP 10
 #define HAZARD_SYNC_STALE_MS 100 /* 5 missed heartbeats: free-run instead */
 #define BLINK_THREAD_STACK_SIZE 1024
-#define BLINK_THREAD_PRIORITY 5
 
 static const struct gpio_dt_spec rl = GPIO_DT_SPEC_GET(DT_NODELABEL(rl), gpios);
 static const struct gpio_dt_spec rr = GPIO_DT_SPEC_GET(DT_NODELABEL(rr), gpios);
@@ -133,12 +133,17 @@ static void blinker_thread(void *p1, void *p2, void *p3)
 		} else {
 			apply_remote_mask();
 		}
-		k_sleep(K_MSEC(BLINK_TICK_MS));
+		int64_t next = k_uptime_get() + BLINK_TICK_MS;
+
+		edf_deadline_at_uptime_ms(k_current_get(),
+					  next + BLINK_TICK_MS,
+					  EDF_TIE_BLINKER);
+		k_sleep(K_TIMEOUT_ABS_MS(next));
 	}
 }
 
 K_THREAD_DEFINE(blinker_tid, BLINK_THREAD_STACK_SIZE, blinker_thread,
-		NULL, NULL, NULL, BLINK_THREAD_PRIORITY, 0, SYS_FOREVER_MS);
+		NULL, NULL, NULL, EDF_THREAD_PRIORITY, 0, SYS_FOREVER_MS);
 
 int blinker_init(void)
 {
@@ -157,6 +162,7 @@ int blinker_init(void)
 		return rc;
 	}
 
+	edf_deadline_after_ms(blinker_tid, BLINK_TICK_MS, EDF_TIE_BLINKER);
 	k_thread_start(blinker_tid);
 	return 0;
 }

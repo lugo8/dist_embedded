@@ -44,6 +44,6 @@
 #define HOLD_OUT_LIMIT_PCT 20.0f
 
 void control_start(bool encoder_available);
-int control_apply_zone_control(const struct wheel_state *ws);
+void control_schedule_frame(void);
 
 #endif

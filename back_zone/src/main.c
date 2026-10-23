@@ -6,6 +6,7 @@
 #include "blinker.h"
 #include "control.h"
 #include "encoder.h"
+#include "edf.h"
 #include "io_status.h"
 #include "motor.h"
 #include "rx.h"
@@ -19,6 +20,7 @@ static const struct device *const can_dev[2] = {
 int main(void)
 {
 	printk("back zone boot\n");
+	edf_deadline_after_ms(k_current_get(), EDF_MAIN_DEADLINE_MS, EDF_TIE_MAIN);
 
 	int rc = io_status_init();
 	if (rc) {
@@ -76,6 +78,8 @@ int main(void)
 	printk("back zone up\n");
 
 	while (1) {
+		edf_deadline_after_ms(k_current_get(), EDF_MAIN_DEADLINE_MS,
+				      EDF_TIE_MAIN);
 		k_sleep(K_SECONDS(1));
 	}
 
