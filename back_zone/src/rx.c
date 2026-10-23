@@ -184,7 +184,7 @@ static void handle_frame(const struct rx_item *item)
 
 	switch (frame->id) {
 	case MSG_ZONE_CTRL:
-		printk("zone control frame received on bus %c\n", 'A' + item->bus);
+		//printk("zone control frame received on bus %c\n", 'A' + item->bus);
 		handle_zone_control(frame->data);
 		break;
 	case MSG_HB_COCKPIT:
@@ -203,7 +203,7 @@ static void handle_frame(const struct rx_item *item)
 		state_set_hb_drivetrain(&hb);
 		break;
 	case MSG_FORCE_FEEDBACK: {
-		printk("force feedback frame received on bus %c\n", 'A' + item->bus);
+		//printk("force feedback frame received on bus %c\n", 'A' + item->bus);
 		struct force_feedback feedback;
 
 		decode_force_feedback(frame->data, &feedback);
@@ -211,7 +211,7 @@ static void handle_frame(const struct rx_item *item)
 		break;
 	}
 	case MSG_BLINKERS: {
-		printk("blinkers frame received on bus %c\n", 'A' + item->bus);
+		//printk("blinkers frame received on bus %c\n", 'A' + item->bus);
 		struct blinkers_message message;
 
 		if (decode_blinkers(frame->data, &message)) {
@@ -238,7 +238,7 @@ static void rx_thread(void *p1, void *p2, void *p3)
 
 	while (1) {
 		k_msgq_get(&rx_q, &it, K_FOREVER);
-		printk("rx_thread: received frame 0x%03x on bus %c\n", it.frame.id, 'A' + it.bus);
+		//printk("rx_thread: received frame 0x%03x on bus %c\n", it.frame.id, 'A' + it.bus);
 		handle_frame(&it);
 	}
 }

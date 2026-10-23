@@ -82,9 +82,9 @@ static int throttle_duty(int16_t throttle)
 
 int control_apply_zone_control(const struct wheel_state *ws)
 {
-	printk("control_apply_zone_control: steering=%d throttle=%d brake=%d left_btn=%d right_btn=%d self_test_btn=%d btn_a=%d btn_y=%d\n",
-	       ws->steering, ws->throttle, ws->brake, ws->left_btn, ws->right_btn,
-	       ws->self_test_btn, ws->btn_a, ws->btn_y);
+	//printk("control_apply_zone_control: steering=%d throttle=%d brake=%d left_btn=%d right_btn=%d self_test_btn=%d btn_a=%d btn_y=%d\n",
+	       //ws->steering, ws->throttle, ws->brake, ws->left_btn, ws->right_btn,
+	       //ws->self_test_btn, ws->btn_a, ws->btn_y);
 	if (!ws) {
 		return -EINVAL;
 	}
@@ -96,17 +96,17 @@ int control_apply_zone_control(const struct wheel_state *ws)
 		UINT16_MAX;
 
 	if (error) {
-		printk("control_apply_zone_control: error state active; braking\n");
+		//printk("control_apply_zone_control: error state active; braking\n");
 		return motor_brake_duty(100);
 	}
 	if (brake_pct > 0U) {
-		printk("control_apply_zone_control: brake active (%u%%); braking\n", brake_pct);
+		//printk("control_apply_zone_control: brake active (%u%%); braking\n", brake_pct);
 		return motor_brake_duty(brake_pct);
 	}
 
 	int duty = throttle_duty(ws->throttle);
 	int rc = motor_forward();
-	printk("control_apply_zone_control: throttle=%d duty=%d%%\n", ws->throttle, duty);
+	//printk("control_apply_zone_control: throttle=%d duty=%d%%\n", ws->throttle, duty);
 
 	return rc ? rc : motor_duty(duty);
 }

@@ -237,6 +237,7 @@ static void rx_thread(void *p1, void *p2, void *p3)
 
 	while (1) {
 		k_msgq_get(&rx_q, &it, K_FOREVER);
+		//printk("rx_thread: received frame 0x%03x on bus %c\n", it.frame.id, 'A' + it.bus);
 		handle_frame(&it);
 	}
 }
