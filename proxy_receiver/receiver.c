@@ -42,7 +42,10 @@
 #define TX_DEBUG 0  // print every frame we send, per bus
 // printing slows the threads: set both to 0 for timing measurements
 
-#define HB_PERIOD_MS      20
+#define CAN_MAX_DLC       8     // classic CAN
+
+#define HB_PERIOD_MS      22    // R4.5 allows 20 ms +/-10 %; 22 is the slowest legal period
+#define HB_PHASE_MS       7     // start the HB beat this far off, so it doesn't line up with the STM heartbeats
 #define DEBOUNCE_MS       20    // test button (same as Lab 2)
 #define DOUBLE_PRESS_MS   500
 #define HB_MISS_MS        55    // a zone/bus is dead after this long with no heartbeat (3 missed + margin)
@@ -263,7 +266,7 @@ static void enter_error(void) {
 // HB TX thread, every 20ms
 static void *hb_thread(void *arg) {
   (void) arg;
-  int64_t next = now_ns();
+  int64_t next = now_ns() + HB_PHASE_MS * NS_PER_MS;
 
   while (1) {
     next += HB_PERIOD_MS * NS_PER_MS;
@@ -333,7 +336,7 @@ static void *blink_thread(void *arg) {
 ////////////////// RX //////////////////
 static void rx_reject(int bus, const struct can_frame *f, uint32_t id) {
 #if RX_DEBUG
-  dbg_frame("rx", bus, id, f->data, f->can_dlc, "DROPPED (invalid: unknown id, wrong dlc, or reserved bits set)");
+  dbg_frame("rx", bus, id, f->data, f->can_dlc, "DROPPED (invalid: unknown id, dlc too short, or reserved bits set)");
 #else
   (void) bus; (void) f; (void) id;
 #endif
@@ -350,15 +353,23 @@ static void rx_frame(int bus, const struct can_frame *f) {
   uint8_t seq = 0;
   struct heartbeat hb = {0};
   struct force_feedback ff = {0};
-  // decode also drops frames with the wrong length or a reserved bit set
+  // Variable payload length: accept any DLC from the bytes the message needs up to 8.
+  // Zero-pad what's missing so the fixed-length decoders see a full frame; bytes that
+  // are present still get the reserved-bit / zero-padding checks.
+  uint8_t dlc = f->can_dlc;
+  uint8_t d[CAN_MAX_DLC] = {0};
+  if (dlc > CAN_MAX_DLC) { rx_reject(bus, f, id); return; }
+  memcpy(d, f->data, dlc);
+
+  // decode also drops frames that are too short or have a reserved bit set
   if (id == CAN_ID_HB_STEERING) {
-    if (!hb_decode(f->data, f->can_dlc, &hb)) { rx_reject(bus, f, id); return; }
+    if (dlc < HB_USED_BYTES || !hb_decode(d, CAN_DLC_HB, &hb)) { rx_reject(bus, f, id); return; }
     peer = 0; key = K_HB2; seq = hb.seq;
   } else if (id == CAN_ID_HB_DRIVETRAIN) {
-    if (!hb_decode(f->data, f->can_dlc, &hb)) { rx_reject(bus, f, id); return; }
+    if (dlc < HB_USED_BYTES || !hb_decode(d, CAN_DLC_HB, &hb)) { rx_reject(bus, f, id); return; }
     peer = 1; key = K_HB3; seq = hb.seq;
   } else if (id == CAN_ID_FORCE_FEEDBACK) {
-    if (!force_decode(f->data, f->can_dlc, &ff)) { rx_reject(bus, f, id); return; }
+    if (dlc < FORCE_USED_BYTES || !force_decode(d, CAN_DLC_FORCE_FEEDBACK, &ff)) { rx_reject(bus, f, id); return; }
     key = K_FORCE; seq = ff.seq;
   } else { rx_reject(bus, f, id); return; }
 

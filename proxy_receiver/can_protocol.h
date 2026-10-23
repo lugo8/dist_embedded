@@ -22,11 +22,22 @@
 
 #define CAN_ID_BLINKER        0x06 // Cockpit -> Steering, Drivetrain
 
+<<<<<<< HEAD
 // DLCs include only defined payload bytes.
 #define CAN_DLC_ZONE_CTRL      8
 #define CAN_DLC_HB             2
 #define CAN_DLC_FORCE_FEEDBACK 3
 #define CAN_DLC_BLINKER        3
+=======
+// per-message DLC; FORCE_FEEDBACK is only decoded here, and receiver.c zero-pads short frames to 8 first
+#define CAN_DLC_ZONE_CTRL      8
+#define CAN_DLC_HB             2
+#define CAN_DLC_FORCE_FEEDBACK 8
+#define CAN_DLC_BLINKER        3
+
+#define HB_USED_BYTES    2 // B0 flags, B1 seq
+#define FORCE_USED_BYTES 3 // B1,B0 force, B2 seq
+>>>>>>> 0254ebbc0456326d195d1a2a93895c19e8b1fa17
 
 struct zone_ctrl {
 	uint8_t buttons;
