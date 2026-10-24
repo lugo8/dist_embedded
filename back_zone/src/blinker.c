@@ -30,7 +30,6 @@ static const struct gpio_dt_spec rl = GPIO_DT_SPEC_GET(DT_NODELABEL(rl), gpios);
 static const struct gpio_dt_spec rr = GPIO_DT_SPEC_GET(DT_NODELABEL(rr), gpios);
 
 static atomic_t remote_led_mask;
-static atomic_t remote_hazard;
 static K_MUTEX_DEFINE(led_mutex);
 static atomic_t hazard_phase_on;
 static atomic_t hazard_sync_valid;
@@ -192,15 +191,8 @@ int blinker_set_message(uint8_t new_state, bool leds_on)
 	}
 
 	atomic_set(&remote_led_mask, led_mask);
-	/* set before the override check below, so hazard never shows the RPi's phase */
-	atomic_set(&remote_hazard, new_state == BLINKERS_HAZARD);
 	if (!io_status_blinker_hazard_override()) {
 		apply_remote_mask(); /* edge shows now, not on the next 10 ms tick */
 	}
 	return 0;
-}
-
-bool blinker_remote_hazard(void)
-{
-	return atomic_get(&remote_hazard) != 0;
 }

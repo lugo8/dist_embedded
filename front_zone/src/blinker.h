@@ -9,6 +9,3 @@ int blinker_set_message(uint8_t state, bool leds_on);
  * to phase-lock the no-RPi hazard blink on both zones.
  */
 void blinker_hazard_sync(uint8_t hb_seq);
-
-/* True while the RPi's latest BLINKER message says HAZARD. */
-bool blinker_remote_hazard(void);
