@@ -294,7 +294,7 @@ static void control_thread(void *p1, void *p2, void *p3)
 						encoder_feedback_available = false;
 						pid_reset(&speed_pid);
 						pid_trim = 0.0f;
-						printk("Encoder feedback unavailable; using feed-forward motor control\n");
+						//printk("Encoder feedback unavailable; using feed-forward motor control\n");
 					}
 				}
 			} else if (target_rpm == 0) {
@@ -329,22 +329,22 @@ static void control_thread(void *p1, void *p2, void *p3)
 				rc = motor_duty(duty);
 			}
 			if (rc) {
-				printk("Motor output update failed: %d\n", rc);
+				//printk("Motor output update failed: %d\n", rc);
 				io_status_mark_error();
 			}
 		}
 
 		if (!encoder_feedback_available && !feedback_error_reported) {
-			printk("Encoder feedback unavailable; using feed-forward motor control\n");
+			//printk("Encoder feedback unavailable; using feed-forward motor control\n");
 			feedback_error_reported = true;
 		}
 
 		if (got_frame && tick && ++log_counter >= 100) {
 			log_counter = 0;
-			printk("control: %s throttle=%d brake=%d target=%d rpm=%d duty feedback=%s\n",
-			       error ? "BRAKE" : "DRIVE", ws.throttle, ws.brake,
-			       target_rpm, (int)measured_rpm,
-			       encoder_feedback_available ? "PID" : "off");
+			//printk("control: %s throttle=%d brake=%d target=%d rpm=%d duty feedback=%s\n",
+			       //error ? "BRAKE" : "DRIVE", ws.throttle, ws.brake,
+			       //target_rpm, (int)measured_rpm,
+			       //encoder_feedback_available ? "PID" : "off");
 		}
 	}
 }

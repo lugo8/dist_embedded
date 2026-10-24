@@ -50,7 +50,7 @@ static void can_rx_cb(const struct device *dev, struct can_frame *frame,
 	edf_deadline_after_ms(rx_tid, 5, EDF_TIE_CAN_RX);
 	if (k_msgq_put(&rx_q, &it, K_NO_WAIT)) {
 		if (atomic_cas(&rx_overflow_reported, 0, 1)) {
-			printk("CAN RX software queue full; dropping frames\n");
+			//printk("CAN RX software queue full; dropping frames\n");
 		}
 		/* A dropped frame is not a zone fault: the next ZONE_CTRL replaces it. */
 	}
@@ -89,10 +89,10 @@ static void can_state_changed(const struct device *dev, enum can_state state,
 	bool degraded = state != CAN_STATE_ERROR_ACTIVE;
 
 	if (degraded) {
-		printk("CAN %c degraded: state %d\n", 'A' + bus, state);
+		//printk("CAN %c degraded: state %d\n", 'A' + bus, state);
 	}
 	if (io_status_set_can_degraded(bus, degraded)) {
-		printk("Failed to update CAN %c degraded status\n", 'A' + bus);
+		//printk("Failed to update CAN %c degraded status\n", 'A' + bus);
 	}
 }
 
@@ -210,8 +210,8 @@ static void relay_if_source_bus_only(const struct rx_item *item, int source)
 	int rc = can_send(can_dev[to_bus], &item->frame, K_MSEC(5), NULL, NULL);
 
 	if (rc) {
-		printk("CAN relay %c->%c failed for 0x%03x: %d\n",
-		       'A' + from_bus, 'A' + to_bus, item->frame.id, rc);
+		//printk("CAN relay %c->%c failed for 0x%03x: %d\n",
+		       //'A' + from_bus, 'A' + to_bus, item->frame.id, rc);
 		(void)io_status_set_can_degraded(to_bus, true);
 	}
 }
@@ -227,7 +227,7 @@ static void handle_zone_control(const uint8_t payload[CAN_MAX_PAYLOAD_SIZE])
 	int rc = servo_set_angle(angle);
 
 	if (rc) {
-		printk("Servo PWM update failed: %d\n", rc);
+		//printk("Servo PWM update failed: %d\n", rc);
 		io_status_mark_error();
 	}
 	// printk("steer=%d throttle=%d brake=%d left_btn=%d right_btn=%d self_test_btn=%d btn_a=%d btn_y=%d\n",
@@ -248,8 +248,8 @@ static void handle_frame(const struct rx_item *item)
 
 	if (frame->dlc != message_dlc(frame->id) ||
 	    (frame->flags & (CAN_FRAME_IDE | CAN_FRAME_RTR))) {
-		printk("Rejecting malformed CAN frame 0x%03x on bus %c\n",
-		       frame->id, 'A' + item->bus);
+		//printk("Rejecting malformed CAN frame 0x%03x on bus %c\n",
+		       //frame->id, 'A' + item->bus);
 		io_status_mark_error();
 		if (frame->id == MSG_ZONE_CTRL) {
 			state_note_bad_cmd();
@@ -259,7 +259,7 @@ static void handle_frame(const struct rx_item *item)
 
 	if (frame->id == MSG_ZONE_CTRL) {
 		if (!wheel_frame_valid(frame->data)) {
-			printk("Rejecting zone-control frame with reserved flags set\n");
+			//printk("Rejecting zone-control frame with reserved flags set\n");
 			state_note_bad_cmd();
 			return;
 		}
@@ -307,11 +307,11 @@ static void handle_frame(const struct rx_item *item)
 			int rc = blinker_set_message(message.state, message.leds_on);
 
 			if (rc) {
-				printk("Failed to update front blinkers: %d\n", rc);
+				//printk("Failed to update front blinkers: %d\n", rc);
 				io_status_mark_error();
 			}
 		} else {
-			printk("Rejecting malformed blinker payload\n");
+			//printk("Rejecting malformed blinker payload\n");
 			io_status_mark_error();
 		}
 		break;
