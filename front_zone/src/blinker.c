@@ -24,17 +24,23 @@
  */
 #define HAZARD_HALVES_PER_WRAP 10
 #define HAZARD_SYNC_STALE_MS 100 /* 5 missed heartbeats: free-run instead */
+#define HAZARD_RETURN_STEADY_MS 200 /* front must beat this long, unbroken, before leaving the back's seq for it */
 #define BLINK_THREAD_STACK_SIZE 1024
+/* The RPi re-sends BLINKER every 20 ms; this many ms without one means it is gone. */
+#define REMOTE_STALE_MS 100
 
 static const struct gpio_dt_spec fl = GPIO_DT_SPEC_GET(DT_NODELABEL(fl), gpios);
 static const struct gpio_dt_spec fr = GPIO_DT_SPEC_GET(DT_NODELABEL(fr), gpios);
 
 static atomic_t remote_led_mask;
-static atomic_t remote_hazard;
+static atomic_t remote_last_ms; /* when the last valid BLINKER frame arrived */
+static atomic_t remote_seen;
 static K_MUTEX_DEFINE(led_mutex);
-static atomic_t hazard_phase_on;
-static atomic_t hazard_sync_valid;
-static atomic_t hazard_sync_ms;
+static atomic_t hazard_phase_on[HB_SRC_COUNT];
+static atomic_t hazard_sync_valid[HB_SRC_COUNT];
+static atomic_t hazard_sync_ms[HB_SRC_COUNT];
+static atomic_t hazard_fresh_since[HB_SRC_COUNT]; /* start of the current unbroken run of heartbeats */
+static int hazard_ref = HB_SRC_FRONT; /* heartbeat the pattern is locked to, only touched under led_mutex */
 /* free-run fallback state, only touched under led_mutex */
 static bool free_run_on;
 static int64_t free_run_next_ms;
@@ -69,11 +75,35 @@ static void apply_remote_mask(void)
 	k_mutex_unlock(&led_mutex);
 }
 
-static bool hazard_synced(void)
+static bool hb_fresh(int src)
 {
-	return atomic_get(&hazard_sync_valid) &&
-	       (uint32_t)(k_uptime_get_32() - (uint32_t)atomic_get(&hazard_sync_ms)) <
+	return atomic_get(&hazard_sync_valid[src]) &&
+	       (uint32_t)(k_uptime_get_32() - (uint32_t)atomic_get(&hazard_sync_ms[src])) <
 		       HAZARD_SYNC_STALE_MS;
+}
+
+static bool hb_steady(int src)
+{
+	return hb_fresh(src) &&
+	       (uint32_t)(k_uptime_get_32() - (uint32_t)atomic_get(&hazard_fresh_since[src])) >=
+		       HAZARD_RETURN_STEADY_MS;
+}
+
+/* Front is preferred, the back is the fallback. Sticky: once on the back, go back to the front only when it
+ * has been steady, so a flapping front heartbeat does not bounce the phase. Call with led_mutex held.
+ * Returns the heartbeat to lock to, or -1 if neither is alive.
+ */
+static int hazard_pick_ref(void)
+{
+	if (hazard_ref == HB_SRC_BACK) {
+		if (hb_steady(HB_SRC_FRONT) || (!hb_fresh(HB_SRC_BACK) && hb_fresh(HB_SRC_FRONT))) {
+			hazard_ref = HB_SRC_FRONT;
+		}
+	} else if (!hb_fresh(HB_SRC_FRONT) && hb_fresh(HB_SRC_BACK)) {
+		hazard_ref = HB_SRC_BACK;
+	}
+
+	return hb_fresh(hazard_ref) ? hazard_ref : -1;
 }
 
 /* Write the no-RPi hazard pattern. Locked so the thread cannot overwrite an
@@ -84,9 +114,11 @@ static void apply_hazard_leds(void)
 	k_mutex_lock(&led_mutex, K_FOREVER);
 	bool on;
 
-	if (hazard_synced()) {
-		on = atomic_get(&hazard_phase_on);
-	} else { /* partner HB gone: free-run */
+	int ref = hazard_pick_ref();
+
+	if (ref >= 0) {
+		on = atomic_get(&hazard_phase_on[ref]);
+	} else { /* both heartbeats gone: free-run */
 		int64_t now = k_uptime_get();
 
 		if (now >= free_run_next_ms) {
@@ -100,14 +132,18 @@ static void apply_hazard_leds(void)
 	k_mutex_unlock(&led_mutex);
 }
 
-void blinker_hazard_sync(uint8_t hb_seq)
+void blinker_hazard_sync(enum hb_src src, uint8_t hb_seq)
 {
 	bool on = ((hb_seq * HAZARD_HALVES_PER_WRAP) >> 8) & 1;
+	uint32_t now = k_uptime_get_32();
 
-	atomic_set(&hazard_sync_ms, k_uptime_get_32());
-	atomic_set(&hazard_sync_valid, 1);
+	if (!hb_fresh(src)) { /* a gap before this beat: a new unbroken run starts */
+		atomic_set(&hazard_fresh_since[src], now);
+	}
+	atomic_set(&hazard_sync_ms[src], now);
+	atomic_set(&hazard_sync_valid[src], 1);
 	/* a missed edge frame is fixed by the next heartbeat, 20 ms later */
-	if (atomic_set(&hazard_phase_on, on) != on &&
+	if (atomic_set(&hazard_phase_on[src], on) != on && src == hazard_ref &&
 	    io_status_blinker_hazard_override()) {
 		apply_hazard_leds();
 	}
@@ -126,8 +162,8 @@ static void blinker_thread(void *p1, void *p2, void *p3)
 
 		if (ovr != dbg_override) {
 			dbg_override = ovr;
-			printk("FRONT BLK override=%d synced=%d t=%u\n", ovr, hazard_synced(),
-			       k_uptime_get_32());
+			printk("FRONT BLK override=%d ref=%d front=%d back=%d t=%u\n", ovr, hazard_ref,
+			       hb_fresh(HB_SRC_FRONT), hb_fresh(HB_SRC_BACK), k_uptime_get_32());
 		}
 		if (ovr) {
 			apply_hazard_leds();
@@ -192,15 +228,17 @@ int blinker_set_message(uint8_t new_state, bool leds_on)
 	}
 
 	atomic_set(&remote_led_mask, led_mask);
-	/* set before the override check below, so hazard never shows the RPi's phase */
-	atomic_set(&remote_hazard, new_state == BLINKERS_HAZARD);
+	/* set before the override check below, so a fresh BLINKER switches this zone to it at once */
+	atomic_set(&remote_last_ms, k_uptime_get_32());
+	atomic_set(&remote_seen, 1);
 	if (!io_status_blinker_hazard_override()) {
 		apply_remote_mask(); /* edge shows now, not on the next 10 ms tick */
 	}
 	return 0;
 }
 
-bool blinker_remote_hazard(void)
+bool blinker_remote_fresh(void)
 {
-	return atomic_get(&remote_hazard) != 0;
+	return atomic_get(&remote_seen) &&
+	       (uint32_t)(k_uptime_get_32() - (uint32_t)atomic_get(&remote_last_ms)) < REMOTE_STALE_MS;
 }
