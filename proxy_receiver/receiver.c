@@ -110,7 +110,7 @@ static int can_open(const char *ifname) {
   // everything else on the bus INT64_MIN wakes us up
   uint32_t mask = CAN_SFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG;
   struct can_filter filters[] = {
-    {CAN_ID_HB_STEERING, mask}, {CAN_ID_HB_DRIVETRAIN, mask}, {CAN_ID_FORCE_FEEDBACK, mask},
+    {CAN_ID_HB_STEERING, mask}, {CAN_ID_HB_DRIVETRAIN, mask},
   };
   setsockopt(fd, SOL_CAN_RAW, CAN_RAW_FILTER, filters, sizeof(filters));
 
@@ -214,7 +214,7 @@ static int64_t hb_seen[2][2]; // [bus][peer], peer 0 = N2, 1 = N3. when we last 
 static int64_t peer_frame[2]; // [bus] when we last heard ANY peer frame on that bus
 
 #define DEDUP_MS 100
-enum { K_HB2, K_HB3, K_FORCE, K_N };
+enum { K_HB2, K_HB3, K_N };
 static struct { uint8_t seq; int64_t t; } dd[K_N]; // last accepted seq and arrival time per key
 
 // UDP socket to send the force byte back to the proxy
@@ -372,7 +372,7 @@ static void rx_frame(int bus, const struct can_frame *f) {
   int key = -1; // which dedup slot this frame belongs to
   uint8_t seq = 0;
   struct heartbeat hb = {0};
-  struct force_feedback ff = {0};
+  struct hb_drivetrain n3 = {0};
   // Variable payload length: accept any DLC from the bytes the message needs up to 8.
   // Zero-pad what's missing so the fixed-length decoders see a full frame; bytes that
   // are present still get the reserved-bit / zero-padding checks.
@@ -385,12 +385,9 @@ static void rx_frame(int bus, const struct can_frame *f) {
   if (id == CAN_ID_HB_STEERING) {
     if (dlc < HB_USED_BYTES || !hb_decode(d, CAN_DLC_HB, &hb)) { rx_reject(bus, f, id); return; }
     peer = 0; key = K_HB2; seq = hb.seq;
-  } else if (id == CAN_ID_HB_DRIVETRAIN) {
-    if (dlc < HB_USED_BYTES || !hb_decode(d, CAN_DLC_HB, &hb)) { rx_reject(bus, f, id); return; }
-    peer = 1; key = K_HB3; seq = hb.seq;
-  } else if (id == CAN_ID_FORCE_FEEDBACK) {
-    if (dlc < FORCE_USED_BYTES || !force_decode(d, CAN_DLC_FORCE_FEEDBACK, &ff)) { rx_reject(bus, f, id); return; }
-    key = K_FORCE; seq = ff.seq;
+  } else if (id == CAN_ID_HB_DRIVETRAIN) { // HB + force feedback in one frame
+    if (dlc < HB_DRIVETRAIN_USED_BYTES || !hb_drivetrain_decode(d, CAN_DLC_HB_DRIVETRAIN, &n3)) { rx_reject(bus, f, id); return; }
+    peer = 1; key = K_HB3; seq = n3.seq;
   } else { rx_reject(bus, f, id); return; }
 
   // note when we heard it, before dedup, so a duplicate still shows the bus is alive
@@ -411,13 +408,13 @@ static void rx_frame(int bus, const struct can_frame *f) {
 #endif
   if (dup) return;
 
-  if (id == CAN_ID_FORCE_FEEDBACK) {
-    int8_t force = (int8_t) clamp(ff.force, -MAX_FORCE_VAL, MAX_FORCE_VAL);
+  if (id == CAN_ID_HB_DRIVETRAIN) {
+    int8_t force = (int8_t) clamp(n3.force, -MAX_FORCE_VAL, MAX_FORCE_VAL);
     sendto(force_fd, &force, 1, MSG_DONTWAIT, (struct sockaddr *) &force_addr, sizeof(force_addr));
   }
 }
 
-// FORCE_RX thread: reads both buses (HB_STEERING, HB_DRIVETRAIN, FORCE_FEEDBACK)
+// FORCE_RX thread: reads both buses (HB_STEERING, HB_DRIVETRAIN with force feedback)
 static void *rx_thread(void *arg) {
   (void) arg;
   struct pollfd pfd[2] = {{.fd = can_fd[0], .events = POLLIN}, {.fd = can_fd[1], .events = POLLIN}};
