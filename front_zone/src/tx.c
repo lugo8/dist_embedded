@@ -31,8 +31,8 @@ static void heartbeat_tx_cb(const struct device *dev, int err, void *user_data)
 	uint8_t bus = (uint8_t)(uintptr_t)user_data;
 
 	if (err) {
-		printk("CAN %c heartbeat transmit failed: %d\n",
-		       'A' + bus, err);
+		// printk("CAN %c heartbeat transmit failed: %d\n",
+		       // 'A' + bus, err);
 		atomic_set(&tx_failed[bus], 1);
 		io_status_set_can_degraded(bus, true);
 		return;
@@ -40,7 +40,7 @@ static void heartbeat_tx_cb(const struct device *dev, int err, void *user_data)
 
 	atomic_clear(&tx_failed[bus]);
 	if (io_status_can_tx(bus)) {
-		printk("Failed to toggle CAN %c TX indicator\n", 'A' + bus);
+		// printk("Failed to toggle CAN %c TX indicator\n", 'A' + bus);
 	}
 }
 
@@ -52,18 +52,18 @@ static bool bus_is_degraded(int bus)
 			atomic_get(&tx_failed[bus]);
 
 	if (rc) {
-		printk("CAN %c state check failed: %d\n", 'A' + bus, rc);
+		// printk("CAN %c state check failed: %d\n", 'A' + bus, rc);
 		io_status_mark_error();
 	}
 	static int last_deg[CAN_BUS_COUNT] = {-1, -1};
 
 	if (last_deg[bus] != degraded) { /* TEMP debug: print on change only */
 		last_deg[bus] = degraded;
-		printk("DBG bus %c degraded=%d can_state=%d(rc=%d) tx_failed=%ld\n", 'A' + bus,
-		       degraded, (int)state, rc, (long)atomic_get(&tx_failed[bus]));
+		// printk("DBG bus %c degraded=%d can_state=%d(rc=%d) tx_failed=%ld\n", 'A' + bus,
+		       // degraded, (int)state, rc, (long)atomic_get(&tx_failed[bus]));
 	}
 	if (io_status_set_can_degraded(bus, degraded)) {
-		printk("Failed to update CAN %c degraded indicator\n", 'A' + bus);
+		// printk("Failed to update CAN %c degraded indicator\n", 'A' + bus);
 	}
 
 	return degraded;
@@ -99,7 +99,7 @@ static void send_heartbeat(uint8_t seq)
 		dbg_tx_ms[bus] = k_uptime_get() - t;
 
 		if (rc) {
-			printk("can_send heartbeat on bus %c failed: %d\n", 'A' + bus, rc);
+			// printk("can_send heartbeat on bus %c failed: %d\n", 'A' + bus, rc);
 			atomic_set(&tx_failed[bus], 1);
 			io_status_set_can_degraded(bus, true);
 		}
@@ -125,10 +125,10 @@ static void heartbeat_tx_thread(void *p1, void *p2, void *p3)
 		int64_t took = k_uptime_get() - start;
 
 		if (late > 5 || took > 10) { /* TEMP debug: only print the slow ones */
-			printk("HB slow seq=%u late=%d took=%d deg=%d/%d tx=%d/%d\n",
-			       (unsigned)(uint8_t)(seq - 1), (int)late, (int)took,
-			       (int)dbg_deg_ms[0], (int)dbg_deg_ms[1],
-			       (int)dbg_tx_ms[0], (int)dbg_tx_ms[1]);
+			// printk("HB slow seq=%u late=%d took=%d deg=%d/%d tx=%d/%d\n",
+			       // (unsigned)(uint8_t)(seq - 1), (int)late, (int)took,
+			       // (int)dbg_deg_ms[0], (int)dbg_deg_ms[1],
+			       // (int)dbg_tx_ms[0], (int)dbg_tx_ms[1]);
 		}
 
 		next += HEARTBEAT_PERIOD_MS;
@@ -146,7 +146,7 @@ int tx_start(void)
 {
 	for (int bus = 0; bus < CAN_BUS_COUNT; bus++) {
 		if (!device_is_ready(can_dev[bus])) {
-			printk("CAN %c not ready; heartbeat TX not started\n", 'A' + bus);
+			// printk("CAN %c not ready; heartbeat TX not started\n", 'A' + bus);
 			io_status_mark_error();
 			return -ENODEV;
 		}
@@ -154,12 +154,12 @@ int tx_start(void)
 		enum can_state state;
 		int rc = can_get_state(can_dev[bus], &state, NULL);
 		if (rc) {
-			printk("CAN %c state check failed: %d\n", 'A' + bus, rc);
+			// printk("CAN %c state check failed: %d\n", 'A' + bus, rc);
 			io_status_mark_error();
 			return rc;
 		}
 		if (state == CAN_STATE_STOPPED) {
-			printk("CAN %c is stopped; heartbeat TX not started\n", 'A' + bus);
+			// printk("CAN %c is stopped; heartbeat TX not started\n", 'A' + bus);
 			io_status_mark_error();
 			return -EIO;
 		}

@@ -44,13 +44,13 @@ static int set_leds(bool left, bool right)
 
 	if (rc) {
 		io_status_mark_error();
-		printk("Rear-left blinker GPIO failed: %d\n", rc);
+		// printk("Rear-left blinker GPIO failed: %d\n", rc);
 		return rc;
 	}
 	rc = gpio_pin_set_dt(&rr, right);
 	if (rc) {
 		io_status_mark_error();
-		printk("Rear-right blinker GPIO failed: %d\n", rc);
+		// printk("Rear-right blinker GPIO failed: %d\n", rc);
 	}
 
 	return rc;
@@ -125,8 +125,8 @@ static void blinker_thread(void *p1, void *p2, void *p3)
 
 		if (ovr != dbg_override) {
 			dbg_override = ovr;
-			printk("BACK BLK override=%d synced=%d t=%u\n", ovr, hazard_synced(),
-			       k_uptime_get_32());
+			// printk("BACK BLK override=%d synced=%d t=%u\n", ovr, hazard_synced(),
+			       // k_uptime_get_32());
 		}
 		if (ovr) {
 			apply_hazard_leds();

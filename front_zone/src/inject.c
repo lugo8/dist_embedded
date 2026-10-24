@@ -26,12 +26,12 @@ static void uart_send_frame(const uint8_t *frame, size_t len)
 
 static void print_help(void)
 {
-	printk("\nsteer:    a/d -/+50   c center\n");
-	printk("throttle: w/s +/-100  x zero\n");
-	printk("brake:    space toggle\n");
-	printk("blinker:  q left  e right (button press)\n");
-	printk("link:     l cut/restore the frame stream (link-loss test)\n");
-	printk("other:    ? help\n\n");
+	// printk("\nsteer:    a/d -/+50   c center\n");
+	// printk("throttle: w/s +/-100  x zero\n");
+	// printk("brake:    space toggle\n");
+	// printk("blinker:  q left  e right (button press)\n");
+	// printk("link:     l cut/restore the frame stream (link-loss test)\n");
+	// printk("other:    ? help\n\n");
 }
 
 static void inject_thread(void *p1, void *p2, void *p3)
@@ -82,7 +82,7 @@ static void inject_thread(void *p1, void *p2, void *p3)
 				break;
 			case 'l':
 				link_cut = !link_cut;
-				printk("> frame stream %s\n", link_cut ? "CUT" : "restored");
+				// printk("> frame stream %s\n", link_cut ? "CUT" : "restored");
 				break;
 			case '?':
 				print_help();

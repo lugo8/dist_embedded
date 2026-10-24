@@ -113,8 +113,8 @@ void io_status_enter_error(uint8_t zone_state)
 
 	if (dbg_last != zone_state) {
 		dbg_last = zone_state;
-		printk("DBG enter_error: %s caller=%p\n", zone_state_name(zone_state),
-		       __builtin_return_address(0));
+		// printk("DBG enter_error: %s caller=%p\n", zone_state_name(zone_state),
+		       // __builtin_return_address(0));
 	}
 	atomic_set(&error_active, 1);
 	state_set_zone_state(zone_state);
@@ -145,7 +145,7 @@ void io_status_note_control_received(void)
 
 void io_status_mark_error(void)
 {
-	printk("DBG mark_error caller=%p\n", __builtin_return_address(0));
+	// printk("DBG mark_error caller=%p\n", __builtin_return_address(0));
 	io_status_enter_error(ZONE_STATE_FAILSAFE_RPI_ERROR);
 }
 

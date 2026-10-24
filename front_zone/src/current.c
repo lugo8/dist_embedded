@@ -39,12 +39,12 @@ int current_init(void)
 {
 	for (int i = 0; i < CUR_COUNT; i++) {
 		if (!adc_is_ready_dt(&ch[i])) {
-			printk("adc not ready\n");
+			// printk("adc not ready\n");
 			return -ENODEV;
 		}
 		int err = adc_channel_setup_dt(&ch[i]);
 		if (err) {
-			printk("channel %d setup failed: %d\n", ch[i].channel_id, err);
+			// printk("channel %d setup failed: %d\n", ch[i].channel_id, err);
 			return err;
 		}
 	}
@@ -53,8 +53,8 @@ int current_init(void)
 	for (int i = 0; i < CUR_COUNT; i++) {
 		zero_mv[i] = read_mv(&ch[i]);
 	}
-	printk("current zero: L %d  R %d  S %d mV\n",
-	       zero_mv[CUR_LEFT], zero_mv[CUR_RIGHT], zero_mv[CUR_SERVO]);
+	// printk("current zero: L %d  R %d  S %d mV\n",
+	       // zero_mv[CUR_LEFT], zero_mv[CUR_RIGHT], zero_mv[CUR_SERVO]);
 	return 0;
 }
 
