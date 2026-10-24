@@ -276,7 +276,7 @@ static void handle_frame(const struct rx_item *item)
 		//printk("steering heartbeat frame received on bus %c\n", 'A' + item->bus);
 		decode_heartbeat(frame->data, &hb);
 		state_set_hb_steering(&hb);
-		blinker_hazard_sync(HB_SRC_FRONT, hb.seq);
+		blinker_hazard_sync(hb.seq);
 		break;
 	case MSG_HB_DRIVETRAIN:
 		//printk("drivetrain heartbeat frame received on bus %c\n", 'A' + item->bus);

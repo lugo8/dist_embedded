@@ -231,13 +231,14 @@ bool io_status_is_can_degraded(uint8_t bus)
 }
 
 /* Hazard phase source:
- *  - BLINKER frames from the RPi still arriving: follow them, so every zone shows the RPi's phase. Judged by the
- *    BLINKER frames themselves, not ZONE_CTRL, which goes silent during the self-test while the RPi still blinks.
- *  - none for REMOTE_STALE_MS: show the pattern locked to the front zone's heartbeat seq (blinker_hazard_sync), so
- *    the zones agree with each other. Free-runs if that heartbeat is gone too.
+ *  - RPi alive (zone-control messages on either bus): follow its BLINKER messages, so every zone shows its phase
+ *  - RPi dead: show the pattern locked to the front zone's heartbeat seq (blinker_hazard_sync), so the
+ *    zones agree with each other. Free-runs if that heartbeat is gone too.
+ * Hazard (RPi in error) always uses the seq-locked pattern, even with the RPi alive, so there is no
+ * phase handoff between the two sources when the RPi's heartbeat drops out.
  * Our own CAN degradation is deliberately not a condition: it must not make this zone leave the RPi's phase.
  */
 bool io_status_blinker_hazard_override(void)
 {
-	return !blinker_remote_fresh();
+	return state_zone_control_missing_on_both_buses() || blinker_remote_hazard();
 }

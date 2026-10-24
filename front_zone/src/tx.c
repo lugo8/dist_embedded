@@ -73,8 +73,7 @@ static bool bus_is_degraded(int bus)
 static int64_t dbg_deg_ms[CAN_BUS_COUNT];
 static int64_t dbg_tx_ms[CAN_BUS_COUNT];
 
-/* Returns true if it was queued on at least one bus that has not been failing */
-static bool send_heartbeat(uint8_t seq)
+static void send_heartbeat(uint8_t seq)
 {
 	struct can_frame frame = {
 		.id = MSG_HB_STEERING,
@@ -83,7 +82,6 @@ static bool send_heartbeat(uint8_t seq)
 	};
 
 	bool deg[CAN_BUS_COUNT];
-	bool sent = false;
 
 	for (int bus = 0; bus < CAN_BUS_COUNT; bus++) {
 		int64_t t = k_uptime_get();
@@ -104,12 +102,8 @@ static bool send_heartbeat(uint8_t seq)
 			//printk("can_send heartbeat on bus %c failed: %d\n", 'A' + bus, rc);
 			atomic_set(&tx_failed[bus], 1);
 			io_status_set_can_degraded(bus, true);
-		} else if (!atomic_get(&tx_failed[bus])) {
-			sent = true;
 		}
 	}
-
-	return sent;
 }
 
 static void heartbeat_tx_thread(void *p1, void *p2, void *p3)
@@ -125,11 +119,8 @@ static void heartbeat_tx_thread(void *p1, void *p2, void *p3)
 		int64_t start = k_uptime_get();
 		int64_t late = start - next; /* how long after its due time the thread woke */
 
-		/* only a heartbeat that really went out may drive the shared hazard phase */
-		if (send_heartbeat(seq)) {
-			blinker_hazard_sync(HB_SRC_FRONT, seq);
-		}
-		seq++;
+		send_heartbeat(seq);
+		blinker_hazard_sync(seq++);
 
 		int64_t took = k_uptime_get() - start;
 

@@ -9,7 +9,6 @@
 #include <zephyr/sys/printk.h>
 #include <zephyr/sys/atomic.h>
 
-#include "blinker.h"
 #include "edf.h"
 #include "io_status.h"
 #include "protocol.h"
@@ -69,8 +68,7 @@ static bool bus_is_degraded(int bus)
 	return degraded;
 }
 
-/* Returns true if it was queued on at least one bus that has not been failing */
-static bool send_heartbeat(uint8_t seq)
+static void send_heartbeat(uint8_t seq)
 {
 	struct can_frame frame = {
 		.id = MSG_HB_DRIVETRAIN,
@@ -78,7 +76,6 @@ static bool send_heartbeat(uint8_t seq)
 		.flags = 0,
 	};
 	const uint16_t dummy_force_feedback = 0;
-	bool sent = false;
 
 	encode_heartbeat(seq, bus_is_degraded(0), bus_is_degraded(1), frame.data);
 	frame.data[HB_DRIVETRAIN_FORCE_MSB] =
@@ -94,12 +91,8 @@ static bool send_heartbeat(uint8_t seq)
 			//printk("can_send heartbeat on bus %c failed: %d\n", 'A' + bus, rc);
 			atomic_set(&tx_failed[bus], 1);
 			io_status_set_can_degraded(bus, true);
-		} else if (!atomic_get(&tx_failed[bus])) {
-			sent = true;
 		}
 	}
-
-	return sent;
 }
 
 static void heartbeat_tx_thread(void *p1, void *p2, void *p3)
@@ -112,11 +105,7 @@ static void heartbeat_tx_thread(void *p1, void *p2, void *p3)
 	int64_t next = k_uptime_get();
 
 	while (1) {
-		/* only a heartbeat that really went out may drive the shared hazard phase */
-		if (send_heartbeat(seq)) {
-			blinker_hazard_sync(HB_SRC_BACK, seq);
-		}
-		seq++;
+		send_heartbeat(seq++);
 
 		next += HEARTBEAT_PERIOD_MS;
 		edf_deadline_at_uptime_ms(k_current_get(),

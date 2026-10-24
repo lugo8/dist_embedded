@@ -291,7 +291,6 @@ static void handle_frame(const struct rx_item *item)
 	case MSG_HB_DRIVETRAIN:
 		decode_drivetrain_heartbeat(frame->data, &hb);
 		state_set_hb_drivetrain(&hb);
-		blinker_hazard_sync(HB_SRC_BACK, hb.seq);
 		break;
 	case MSG_FORCE_FEEDBACK: {
 		struct force_feedback feedback;
