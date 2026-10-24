@@ -32,6 +32,8 @@ static const struct gpio_dt_spec can_tx[2] = {
 };
 static const struct gpio_dt_spec error_pin =
 	GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), tp_err_gpios);
+static const struct gpio_dt_spec relay_tx_pin =
+	GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), tp_relay_tx_gpios);
 
 static atomic_t degraded_mask;
 static atomic_t error_active;
@@ -78,6 +80,10 @@ int io_status_init(void)
 
 	int rc = configure_output(&error_pin);
 
+	if (rc) {
+		return rc;
+	}
+	rc = configure_output(&relay_tx_pin);
 	if (rc) {
 		return rc;
 	}
@@ -179,6 +185,11 @@ int io_status_can_tx(uint8_t bus)
 	}
 
 	return toggle_pin(&can_tx[bus]);
+}
+
+int io_status_relay_tx(void)
+{
+	return toggle_pin(&relay_tx_pin);
 }
 
 int io_status_set_can_degraded(uint8_t bus, bool degraded)

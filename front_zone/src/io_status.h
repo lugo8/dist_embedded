@@ -7,6 +7,7 @@
 int io_status_init(void);
 int io_status_can_rx(uint8_t bus);
 int io_status_can_tx(uint8_t bus);
+int io_status_relay_tx(void);
 int io_status_set_can_degraded(uint8_t bus, bool degraded);
 bool io_status_is_can_degraded(uint8_t bus);
 void io_status_enter_error(uint8_t zone_state);
