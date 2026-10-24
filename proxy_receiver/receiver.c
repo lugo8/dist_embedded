@@ -140,6 +140,22 @@ static pthread_mutex_t tx_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static void dbg_frame(const char *dir, int bus, uint32_t id, const uint8_t *data, int dlc, const char *tag);
 
+// time stuff
+#define NS_PER_MS  1000000LL
+#define NS_PER_SEC 1000000000LL
+
+static int64_t now_ns(void) {
+  struct timespec t;
+  clock_gettime(CLOCK_MONOTONIC, &t);
+  return (int64_t) t.tv_sec * NS_PER_SEC + t.tv_nsec;
+}
+
+// When a bus's TX queue is full (dead bus: nobody ACKs, frames pile up) we stop writing to it and
+// try again every TX_PROBE_MS. Keeps the queue from filling with stale frames that would burst out
+// when the bus comes back. Pair with a short txqueuelen (ip link set canX txqueuelen 2).
+#define TX_PROBE_MS 20
+static int64_t tx_retry_at[2]; // [bus] don't write before this time. Guarded by tx_lock.
+
 // send frame on both buses. CAN hardware adds and checks the CRC, so the payload carries none.
 static void can_send_both(uint32_t id, const uint8_t *data, uint8_t dlc) {
   struct can_frame f = {0};
@@ -149,9 +165,19 @@ static void can_send_both(uint32_t id, const uint8_t *data, uint8_t dlc) {
 
   int err[2] = {0, 0};
   pthread_mutex_lock(&tx_lock);
+  int64_t now = now_ns();
   for (int bus = 0; bus < 2; bus++) {
+    if (now < tx_retry_at[bus]) {
+      err[bus] = EAGAIN; // backed off: skip this bus, the other one still carries the frame
+      continue;
+    }
     gpio_put(tx_pin[bus], 1);
-    if (write(can_fd[bus], &f, sizeof(f)) < 0) err[bus] = errno; // bus dead / queue full: we just move on
+    if (write(can_fd[bus], &f, sizeof(f)) < 0) {
+      err[bus] = errno;
+      if (errno == ENOBUFS || errno == EAGAIN) tx_retry_at[bus] = now + TX_PROBE_MS * NS_PER_MS;
+    } else {
+      tx_retry_at[bus] = 0;
+    }
     gpio_put(tx_pin[bus], 0);
   }
   pthread_mutex_unlock(&tx_lock);
@@ -167,16 +193,6 @@ static void can_send_both(uint32_t id, const uint8_t *data, uint8_t dlc) {
 
 static int clamp(int v, int lo, int hi) {
   return v < lo ? lo : (v > hi ? hi : v);
-}
-
-// time stuff
-#define NS_PER_MS  1000000LL
-#define NS_PER_SEC 1000000000LL
-
-static int64_t now_ns(void) {
-  struct timespec t;
-  clock_gettime(CLOCK_MONOTONIC, &t);
-  return (int64_t) t.tv_sec * NS_PER_SEC + t.tv_nsec;
 }
 
 static void sleep_until(int64_t deadline_ns) {
