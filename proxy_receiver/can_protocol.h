@@ -13,31 +13,21 @@
 
 #define CAN_ID_HB_COCKPIT     0x02 // Cockpit -> Steering, Drivetrain
 #define CAN_ID_HB_STEERING    0x03 // Steering -> Cockpit, Drivetrain
-#define CAN_ID_HB_DRIVETRAIN  0x04 // Drivetrain -> Cockpit, Steering
+#define CAN_ID_HB_DRIVETRAIN  0x04 // Drivetrain -> Cockpit, Steering. Also carries the force feedback.
 #define HB_BIT_CAN_A_DEGRADED 7
 #define HB_BIT_CAN_B_DEGRADED 0
 #define HB_RESERVED_MASK      0x7E
 
-#define CAN_ID_FORCE_FEEDBACK 0x05 // Steering -> Cockpit
-
 #define CAN_ID_BLINKER        0x06 // Cockpit -> Steering, Drivetrain
 
-<<<<<<< HEAD
-// DLCs include only defined payload bytes.
+// per-message DLC; HB_DRIVETRAIN is only decoded here, and receiver.c zero-pads short frames to 8 first
 #define CAN_DLC_ZONE_CTRL      8
 #define CAN_DLC_HB             2
-#define CAN_DLC_FORCE_FEEDBACK 3
-#define CAN_DLC_BLINKER        3
-=======
-// per-message DLC; FORCE_FEEDBACK is only decoded here, and receiver.c zero-pads short frames to 8 first
-#define CAN_DLC_ZONE_CTRL      8
-#define CAN_DLC_HB             2
-#define CAN_DLC_FORCE_FEEDBACK 8
+#define CAN_DLC_HB_DRIVETRAIN  4
 #define CAN_DLC_BLINKER        3
 
 #define HB_USED_BYTES    2 // B0 flags, B1 seq
-#define FORCE_USED_BYTES 3 // B1,B0 force, B2 seq
->>>>>>> 0254ebbc0456326d195d1a2a93895c19e8b1fa17
+#define HB_DRIVETRAIN_USED_BYTES 4 // B0 flags, B2,B1 force, B3 seq
 
 struct zone_ctrl {
 	uint8_t buttons;
@@ -53,7 +43,9 @@ struct heartbeat {
 	uint8_t seq;
 };
 
-struct force_feedback {
+struct hb_drivetrain {
+	bool can_a_degraded;
+	bool can_b_degraded;
 	int16_t force;
 	uint8_t seq;
 };
@@ -101,13 +93,16 @@ static inline bool hb_decode(const uint8_t *d, uint8_t dlc, struct heartbeat *ou
 	return true;
 }
 
-static inline bool force_decode(const uint8_t *d, uint8_t dlc, struct force_feedback *out)
+/* HB_DRIVETRAIN: B0 flags (same bits as HB) | B2,B1 force (B2 high) | B3 seq */
+static inline bool hb_drivetrain_decode(const uint8_t *d, uint8_t dlc, struct hb_drivetrain *out)
 {
-	if (dlc != CAN_DLC_FORCE_FEEDBACK) {
+	if (dlc != CAN_DLC_HB_DRIVETRAIN || (d[0] & HB_RESERVED_MASK)) {
 		return false;
 	}
-	out->force = (int16_t)(((uint16_t)d[1] << 8) | d[0]);
-	out->seq = d[2];
+	out->can_a_degraded = (d[0] >> HB_BIT_CAN_A_DEGRADED) & 1;
+	out->can_b_degraded = (d[0] >> HB_BIT_CAN_B_DEGRADED) & 1;
+	out->force = (int16_t)(((uint16_t)d[2] << 8) | d[1]);
+	out->seq = d[3];
 	return true;
 }
 

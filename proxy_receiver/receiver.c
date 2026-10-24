@@ -44,8 +44,7 @@
 
 #define CAN_MAX_DLC       8     // classic CAN
 
-#define HB_PERIOD_MS      22    // R4.5 allows 20 ms +/-10 %; 22 is the slowest legal period
-#define HB_PHASE_MS       7     // start the HB beat this far off, so it doesn't line up with the STM heartbeats
+#define CTRL_PERIOD_MS    22    // ZONE_CTRL doubles as the cockpit HB: never let it go quieter than this (R4.5 allows 20 ms +/-10 %)
 #define DEBOUNCE_MS       20    // test button (same as Lab 2)
 #define DOUBLE_PRESS_MS   500
 #define HB_MISS_MS        55    // a zone/bus is dead after this long with no heartbeat (3 missed + margin)
@@ -111,7 +110,7 @@ static int can_open(const char *ifname) {
   // everything else on the bus INT64_MIN wakes us up
   uint32_t mask = CAN_SFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG;
   struct can_filter filters[] = {
-    {CAN_ID_HB_STEERING, mask}, {CAN_ID_HB_DRIVETRAIN, mask}, {CAN_ID_FORCE_FEEDBACK, mask},
+    {CAN_ID_HB_STEERING, mask}, {CAN_ID_HB_DRIVETRAIN, mask},
   };
   setsockopt(fd, SOL_CAN_RAW, CAN_RAW_FILTER, filters, sizeof(filters));
 
@@ -125,10 +124,17 @@ static int can_fd[2]; // [0] = bus A, [1] = bus B
 static const int tx_pin[2] = {PIN_TX_A, PIN_TX_B};
 
 // one 8-bit seq counter per message ID
-static uint8_t ctrl_seq = 0, hb_seq = 0, blink_seq = 0;
+static uint8_t ctrl_seq = 0, blink_seq = 0;
+
+// last ZONE_CTRL we built, and when it went out. ZONE_CTRL is the cockpit heartbeat now (no HB_COCKPIT),
+// so ctrl_keepalive_thread re-sends it if no wheel update has triggered a send for CTRL_PERIOD_MS.
+static pthread_mutex_t ctrl_lock = PTHREAD_MUTEX_INITIALIZER;
+static struct zone_ctrl last_ctrl;
+static int64_t last_ctrl_tx = INT64_MIN;
+static int have_ctrl = 0;
 
 // main thread: ZONE_CTRL
-// thread 1: HB_COCKPIT
+// thread 1: ZONE_CTRL keepalive (cockpit heartbeat)
 // thread 2: BLINKER
 static pthread_mutex_t tx_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -208,7 +214,7 @@ static int64_t hb_seen[2][2]; // [bus][peer], peer 0 = N2, 1 = N3. when we last 
 static int64_t peer_frame[2]; // [bus] when we last heard ANY peer frame on that bus
 
 #define DEDUP_MS 100
-enum { K_HB2, K_HB3, K_FORCE, K_N };
+enum { K_HB2, K_HB3, K_N };
 static struct { uint8_t seq; int64_t t; } dd[K_N]; // last accepted seq and arrival time per key
 
 // UDP socket to send the force byte back to the proxy
@@ -263,29 +269,43 @@ static void enter_error(void) {
   }
 }
 
-// HB TX thread, every 20ms
-static void *hb_thread(void *arg) {
+// Send ZONE_CTRL on both buses. Stays silent while the test button has failed this zone, so the
+// peers see the cockpit heartbeat stop. Takes a new seq every time, also for a keepalive re-send.
+static void send_ctrl(const struct zone_ctrl *src) {
+  pthread_mutex_lock(&state_lock);
+  int silent = self_test;
+  pthread_mutex_unlock(&state_lock);
+
+  pthread_mutex_lock(&ctrl_lock);
+  last_ctrl = *src;
+  have_ctrl = 1;
+  if (!silent) {
+    struct zone_ctrl c = last_ctrl;
+    c.seq = ctrl_seq++;
+    uint8_t data[CAN_DLC_ZONE_CTRL];
+    ctrl_encode(&c, data);
+    gpio_put(PIN_CMD_TX, 1);           // CMD_TX is high while we write to the buses
+    can_send_both(CAN_ID_ZONE_CTRL, data, CAN_DLC_ZONE_CTRL);
+    gpio_put(PIN_CMD_TX, 0);
+    last_ctrl_tx = now_ns();
+  }
+  pthread_mutex_unlock(&ctrl_lock);
+}
+
+// keepalive: if the wheel updates stall, keep sending the last ZONE_CTRL so the zones still see the heartbeat
+static void *ctrl_keepalive_thread(void *arg) {
   (void) arg;
-  int64_t next = now_ns() + HB_PHASE_MS * NS_PER_MS;
+  int64_t next = now_ns();
 
   while (1) {
-    next += HB_PERIOD_MS * NS_PER_MS;
+    next += MON_TICK_MS * NS_PER_MS;
     sleep_until(next);
 
-    pthread_mutex_lock(&state_lock);
-    int silent = self_test;  // while we are in our own fault, send no heartbeat
-    uint8_t h = health;
-    pthread_mutex_unlock(&state_lock);
-    if (silent) continue;
-
-    struct heartbeat hb = {
-      .can_a_degraded = h & 1,
-      .can_b_degraded = (h >> 1) & 1,
-      .seq = hb_seq++,
-    };
-    uint8_t data[CAN_DLC_HB];
-    hb_encode(&hb, data);
-    can_send_both(CAN_ID_HB_COCKPIT, data, CAN_DLC_HB);
+    pthread_mutex_lock(&ctrl_lock);
+    int due = have_ctrl && (now_ns() - last_ctrl_tx) >= (CTRL_PERIOD_MS - MON_TICK_MS) * NS_PER_MS;
+    struct zone_ctrl c = last_ctrl;
+    pthread_mutex_unlock(&ctrl_lock);
+    if (due) send_ctrl(&c);
   }
   return NULL;
 }
@@ -352,7 +372,7 @@ static void rx_frame(int bus, const struct can_frame *f) {
   int key = -1; // which dedup slot this frame belongs to
   uint8_t seq = 0;
   struct heartbeat hb = {0};
-  struct force_feedback ff = {0};
+  struct hb_drivetrain n3 = {0};
   // Variable payload length: accept any DLC from the bytes the message needs up to 8.
   // Zero-pad what's missing so the fixed-length decoders see a full frame; bytes that
   // are present still get the reserved-bit / zero-padding checks.
@@ -365,12 +385,9 @@ static void rx_frame(int bus, const struct can_frame *f) {
   if (id == CAN_ID_HB_STEERING) {
     if (dlc < HB_USED_BYTES || !hb_decode(d, CAN_DLC_HB, &hb)) { rx_reject(bus, f, id); return; }
     peer = 0; key = K_HB2; seq = hb.seq;
-  } else if (id == CAN_ID_HB_DRIVETRAIN) {
-    if (dlc < HB_USED_BYTES || !hb_decode(d, CAN_DLC_HB, &hb)) { rx_reject(bus, f, id); return; }
-    peer = 1; key = K_HB3; seq = hb.seq;
-  } else if (id == CAN_ID_FORCE_FEEDBACK) {
-    if (dlc < FORCE_USED_BYTES || !force_decode(d, CAN_DLC_FORCE_FEEDBACK, &ff)) { rx_reject(bus, f, id); return; }
-    key = K_FORCE; seq = ff.seq;
+  } else if (id == CAN_ID_HB_DRIVETRAIN) { // HB + force feedback in one frame
+    if (dlc < HB_DRIVETRAIN_USED_BYTES || !hb_drivetrain_decode(d, CAN_DLC_HB_DRIVETRAIN, &n3)) { rx_reject(bus, f, id); return; }
+    peer = 1; key = K_HB3; seq = n3.seq;
   } else { rx_reject(bus, f, id); return; }
 
   // note when we heard it, before dedup, so a duplicate still shows the bus is alive
@@ -391,13 +408,13 @@ static void rx_frame(int bus, const struct can_frame *f) {
 #endif
   if (dup) return;
 
-  if (id == CAN_ID_FORCE_FEEDBACK) {
-    int8_t force = (int8_t) clamp(ff.force, -MAX_FORCE_VAL, MAX_FORCE_VAL);
+  if (id == CAN_ID_HB_DRIVETRAIN) {
+    int8_t force = (int8_t) clamp(n3.force, -MAX_FORCE_VAL, MAX_FORCE_VAL);
     sendto(force_fd, &force, 1, MSG_DONTWAIT, (struct sockaddr *) &force_addr, sizeof(force_addr));
   }
 }
 
-// FORCE_RX thread: reads both buses (HB_STEERING, HB_DRIVETRAIN, FORCE_FEEDBACK)
+// FORCE_RX thread: reads both buses (HB_STEERING, HB_DRIVETRAIN with force feedback)
 static void *rx_thread(void *arg) {
   (void) arg;
   struct pollfd pfd[2] = {{.fd = can_fd[0], .events = POLLIN}, {.fd = can_fd[1], .events = POLLIN}};
@@ -503,8 +520,8 @@ int main(int argc, char **argv) {
   force_addr.sin_port = htons(S_PORT);
   force_addr.sin_addr.s_addr = inet_addr(REMOTE_HOST);
 
-  pthread_t hb_tid, blink_tid, rx_tid, mon_tid;
-  pthread_create(&hb_tid, NULL, hb_thread, NULL);
+  pthread_t ctrl_tid, blink_tid, rx_tid, mon_tid;
+  pthread_create(&ctrl_tid, NULL, ctrl_keepalive_thread, NULL);
   pthread_create(&blink_tid, NULL, blink_thread, NULL);
   pthread_create(&rx_tid, NULL, rx_thread, NULL);
   pthread_create(&mon_tid, NULL, mon_thread, NULL);
@@ -567,7 +584,6 @@ int main(int argc, char **argv) {
       .steering = (int16_t) clamp(state.lX, -32768, 32767),
       .throttle = (int16_t) clamp(state.lY, -32768, 32767),
       .brake = (int16_t) clamp(state.lRz, -32768, 32767),
-      .seq = ctrl_seq++,
     };
     if (state.rgbButtons[4]) c.buttons |= 1 << CTRL_BTN_RIGHT;
     if (state.rgbButtons[5]) c.buttons |= 1 << CTRL_BTN_LEFT;
@@ -576,13 +592,7 @@ int main(int argc, char **argv) {
     if (state.rgbButtons[2]) c.buttons |= 1 << CTRL_BTN_X;
     if (state.rgbButtons[3]) c.buttons |= 1 << CTRL_BTN_Y;
 
-    uint8_t data[CAN_DLC_ZONE_CTRL];
-    ctrl_encode(&c, data);
-    // printf("%10.3f ZONE_CTRL seq=%u steer=%d thr=%d brk=%d btns=0x%02X\n", now_ns() / 1e6,
-    //        (unsigned) c.seq, c.steering, c.throttle, c.brake, (unsigned) c.buttons);
-    gpio_put(PIN_CMD_TX, 1);           // CMD_TX is high while we write to the buses
-    can_send_both(CAN_ID_ZONE_CTRL, data, CAN_DLC_ZONE_CTRL);
-    gpio_put(PIN_CMD_TX, 0);
+    send_ctrl(&c);
 
     // test button (B): single press fails this zone, double press clears it
     int b_down = state.rgbButtons[1] != 0;
@@ -604,9 +614,9 @@ int main(int argc, char **argv) {
       btn_change = now;
       if (b_down && steady) { // a real press
         if (self_test && (now - last_press) <= DOUBLE_PRESS_MS * NS_PER_MS) {
-          self_test = 0; // double press: cause cleared, HB restarts. HB_MON decides when we leave error.
+          self_test = 0; // double press: cause cleared, ZONE_CTRL restarts. HB_MON decides when we leave error.
         } else {
-          self_test = 1; // single press: fail this zone now (HB goes silent, so the peers see us fail)
+          self_test = 1; // single press: fail this zone now (ZONE_CTRL goes silent, so the peers see us fail)
           enter_error();
           last_press = now;
         }
