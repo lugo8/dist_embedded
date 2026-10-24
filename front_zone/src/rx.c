@@ -213,6 +213,8 @@ static void relay_if_source_bus_only(const struct rx_item *item, int source)
 		//printk("CAN relay %c->%c failed for 0x%03x: %d\n",
 		       //'A' + from_bus, 'A' + to_bus, item->frame.id, rc);
 		(void)io_status_set_can_degraded(to_bus, true);
+	} else if (io_status_relay_tx()) {
+		printk("Failed to toggle relay TX indicator\n");
 	}
 }
 
@@ -289,6 +291,7 @@ static void handle_frame(const struct rx_item *item)
 	case MSG_HB_DRIVETRAIN:
 		decode_drivetrain_heartbeat(frame->data, &hb);
 		state_set_hb_drivetrain(&hb);
+		blinker_hazard_sync(HB_SRC_BACK, hb.seq);
 		break;
 	case MSG_FORCE_FEEDBACK: {
 		struct force_feedback feedback;

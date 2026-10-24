@@ -11,6 +11,7 @@
 #include <zephyr/sys/util.h>
 
 #include "motor.h"
+#include "blinker.h"
 #include "protocol.h"
 #include "edf.h"
 #include "state.h"
@@ -225,12 +226,13 @@ bool io_status_is_can_degraded(uint8_t bus)
 }
 
 /* Hazard phase source:
- *  - RPi alive (zone-control messages on either bus): follow its BLINKER messages, so every zone shows its phase
- *  - RPi dead: show the pattern locked to the front zone's heartbeat seq (blinker_hazard_sync), so the
- *    zones agree with each other. Free-runs if that heartbeat is gone too.
+ *  - BLINKER frames from the RPi still arriving: follow them, so every zone shows the RPi's phase. Judged by the
+ *    BLINKER frames themselves, not ZONE_CTRL, which goes silent during the self-test while the RPi still blinks.
+ *  - none for REMOTE_STALE_MS: show the pattern locked to the front zone's heartbeat seq (blinker_hazard_sync), so
+ *    the zones agree with each other. Free-runs if that heartbeat is gone too.
  * Our own CAN degradation is deliberately not a condition: it must not make this zone leave the RPi's phase.
  */
 bool io_status_blinker_hazard_override(void)
 {
-	return state_zone_control_missing_on_both_buses();
+	return !blinker_remote_fresh();
 }
