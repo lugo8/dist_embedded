@@ -72,11 +72,16 @@ static void send_heartbeat(uint8_t seq)
 {
 	struct can_frame frame = {
 		.id = MSG_HB_DRIVETRAIN,
-		.dlc = MSG_HEARTBEAT_DLC,
+		.dlc = MSG_HB_DRIVETRAIN_DLC,
 		.flags = 0,
 	};
+	const uint16_t dummy_force_feedback = 0;
 
 	encode_heartbeat(seq, bus_is_degraded(0), bus_is_degraded(1), frame.data);
+	frame.data[HB_DRIVETRAIN_FORCE_MSB] =
+		(uint8_t)(dummy_force_feedback >> 8);
+	frame.data[HB_DRIVETRAIN_FORCE_LSB] = (uint8_t)dummy_force_feedback;
+	frame.data[HB_DRIVETRAIN_SEQ] = seq;
 
 	for (int bus = 0; bus < CAN_BUS_COUNT; bus++) {
 		int rc = can_send(can_dev[bus], &frame, K_MSEC(5), heartbeat_tx_cb,

@@ -13,7 +13,6 @@ bool is_known_msg_type(uint16_t id)
 {
 	switch (id) {
 	case MSG_ZONE_CTRL:
-	case MSG_HB_COCKPIT:
 	case MSG_HB_STEERING:
 	case MSG_HB_DRIVETRAIN:
 	case MSG_FORCE_FEEDBACK:
@@ -29,10 +28,10 @@ uint8_t message_dlc(uint16_t id)
 	switch (id) {
 	case MSG_ZONE_CTRL:
 		return MSG_ZONE_CTRL_DLC;
-	case MSG_HB_COCKPIT:
 	case MSG_HB_STEERING:
-	case MSG_HB_DRIVETRAIN:
 		return MSG_HEARTBEAT_DLC;
+	case MSG_HB_DRIVETRAIN:
+		return MSG_HB_DRIVETRAIN_DLC;
 	case MSG_FORCE_FEEDBACK:
 		return MSG_FORCE_FEEDBACK_DLC;
 	case MSG_BLINKERS:
@@ -85,6 +84,13 @@ void decode_heartbeat(const uint8_t payload[CAN_MAX_PAYLOAD_SIZE], struct heartb
 	out->seq = payload[1];
 }
 
+void decode_drivetrain_heartbeat(const uint8_t payload[CAN_MAX_PAYLOAD_SIZE],
+				 struct heartbeat *out)
+{
+	decode_heartbeat(payload, out);
+	out->seq = payload[HB_DRIVETRAIN_SEQ];
+}
+
 void encode_heartbeat(uint8_t seq, bool can_a_degraded, bool can_b_degraded,
 		      uint8_t payload[CAN_MAX_PAYLOAD_SIZE])
 {
@@ -122,10 +128,10 @@ uint8_t message_sequence(uint16_t id, const uint8_t payload[CAN_MAX_PAYLOAD_SIZE
 	switch (id) {
 	case MSG_ZONE_CTRL:
 		return payload[7];
-	case MSG_HB_COCKPIT:
 	case MSG_HB_STEERING:
-	case MSG_HB_DRIVETRAIN:
 		return payload[1];
+	case MSG_HB_DRIVETRAIN:
+		return payload[HB_DRIVETRAIN_SEQ];
 	case MSG_FORCE_FEEDBACK:
 	case MSG_BLINKERS:
 		return payload[2];

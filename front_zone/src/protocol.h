@@ -5,7 +5,6 @@
 #include <stdint.h>
 
 #define MSG_ZONE_CTRL      0x01
-#define MSG_HB_COCKPIT     0x02
 #define MSG_HB_STEERING    0x03
 #define MSG_HB_DRIVETRAIN  0x04
 #define MSG_FORCE_FEEDBACK 0x05
@@ -14,6 +13,10 @@
 #define CAN_MAX_PAYLOAD_SIZE 8
 #define MSG_ZONE_CTRL_DLC 8
 #define MSG_HEARTBEAT_DLC 2
+#define MSG_HB_DRIVETRAIN_DLC 4
+#define HB_DRIVETRAIN_FORCE_MSB 1
+#define HB_DRIVETRAIN_FORCE_LSB 2
+#define HB_DRIVETRAIN_SEQ 3
 #define MSG_FORCE_FEEDBACK_DLC 3
 #define MSG_BLINKERS_DLC 3
 
@@ -79,6 +82,8 @@ const char *zone_state_name(uint8_t zone_state);
 bool wheel_frame_valid(const uint8_t payload[CAN_MAX_PAYLOAD_SIZE]);
 void decode_wheel_state(const uint8_t payload[CAN_MAX_PAYLOAD_SIZE], struct wheel_state *out);
 void decode_heartbeat(const uint8_t payload[CAN_MAX_PAYLOAD_SIZE], struct heartbeat *out);
+void decode_drivetrain_heartbeat(const uint8_t payload[CAN_MAX_PAYLOAD_SIZE],
+				 struct heartbeat *out);
 void encode_heartbeat(uint8_t seq, bool can_a_degraded, bool can_b_degraded,
 		      uint8_t payload[CAN_MAX_PAYLOAD_SIZE]);
 void decode_force_feedback(const uint8_t payload[CAN_MAX_PAYLOAD_SIZE],

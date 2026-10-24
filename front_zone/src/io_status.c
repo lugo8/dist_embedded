@@ -5,12 +5,17 @@
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/drivers/gpio.h>
+#include <zephyr/kernel.h>
 #include <zephyr/sys/atomic.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/sys/util.h>
 
 #include "protocol.h"
+#include "edf.h"
 #include "state.h"
+
+#define LINK_WATCHDOG_PERIOD_MS 10
+#define LINK_WATCHDOG_STACK_SIZE 512
 
 static const struct gpio_dt_spec can_degraded[2] = {
 	GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), can_a_degraded_gpios),
@@ -29,6 +34,32 @@ static const struct gpio_dt_spec error_pin =
 
 static atomic_t degraded_mask;
 static atomic_t error_active;
+
+static void link_watchdog_thread(void *p1, void *p2, void *p3)
+{
+	ARG_UNUSED(p1);
+	ARG_UNUSED(p2);
+	ARG_UNUSED(p3);
+
+	int64_t next = k_uptime_get();
+
+	while (1) {
+		if (state_zone_control_missing_on_both_buses() &&
+		    state_get_zone_state() != ZONE_STATE_FAILSAFE_LINK_LOST) {
+			io_status_enter_error(ZONE_STATE_FAILSAFE_LINK_LOST);
+		}
+
+		next += LINK_WATCHDOG_PERIOD_MS;
+		edf_deadline_at_uptime_ms(k_current_get(),
+					  next + LINK_WATCHDOG_PERIOD_MS,
+					  EDF_TIE_CAN_RX);
+		k_sleep(K_TIMEOUT_ABS_MS(next));
+	}
+}
+
+K_THREAD_DEFINE(link_watchdog_tid, LINK_WATCHDOG_STACK_SIZE,
+		link_watchdog_thread, NULL, NULL, NULL,
+		EDF_THREAD_PRIORITY, 0, SYS_FOREVER_MS);
 
 static int configure_output(const struct gpio_dt_spec *pin)
 {
@@ -70,6 +101,9 @@ int io_status_init(void)
 	}
 
 	io_status_enter_error(ZONE_STATE_FAILSAFE_LINK_LOST);
+	edf_deadline_after_ms(link_watchdog_tid, LINK_WATCHDOG_PERIOD_MS,
+			      EDF_TIE_CAN_RX);
+	k_thread_start(link_watchdog_tid);
 	return 0;
 }
 
@@ -106,9 +140,7 @@ bool io_status_error_active(void)
 
 void io_status_note_control_received(void)
 {
-	if (state_get_zone_state() == ZONE_STATE_FAILSAFE_LINK_LOST) {
-		io_status_clear_error();
-	}
+	io_status_clear_error();
 }
 
 void io_status_mark_error(void)
@@ -187,12 +219,12 @@ bool io_status_is_can_degraded(uint8_t bus)
 }
 
 /* Hazard phase source:
- *  - RPi alive (heartbeat on either bus): follow its BLINKER messages, so every zone shows the RPi's phase
+ *  - RPi alive (zone-control messages on either bus): follow its BLINKER messages, so every zone shows its phase
  *  - RPi dead: show the pattern locked to the front zone's heartbeat seq (blinker_hazard_sync), so the
  *    zones agree with each other. Free-runs if that heartbeat is gone too.
  * Our own CAN degradation is deliberately not a condition: it must not make this zone leave the RPi's phase.
  */
 bool io_status_blinker_hazard_override(void)
 {
-	return state_rpi_heartbeat_missing_on_both_buses();
+	return state_zone_control_missing_on_both_buses();
 }

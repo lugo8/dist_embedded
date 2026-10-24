@@ -121,7 +121,6 @@ static int message_source(uint16_t id)
 {
 	switch (id) {
 	case MSG_ZONE_CTRL:
-	case MSG_HB_COCKPIT:
 	case MSG_BLINKERS:
 		return SOURCE_COCKPIT;
 	case MSG_HB_STEERING:
@@ -139,7 +138,7 @@ static void note_source_heartbeat(uint16_t id, uint8_t bus)
 	int source;
 
 	switch (id) {
-	case MSG_HB_COCKPIT:
+	case MSG_ZONE_CTRL:
 		source = SOURCE_COCKPIT;
 		break;
 	case MSG_HB_STEERING:
@@ -220,16 +219,9 @@ static void handle_zone_control(const uint8_t payload[CAN_MAX_PAYLOAD_SIZE])
 {
 	struct wheel_state ws;
 
-	if (!wheel_frame_valid(payload) ) {
-		printk("Rejecting zone-control frame with reserved flags set\n");
-		state_note_bad_cmd();
-		return;
-	}
-
 	decode_wheel_state(payload, &ws);
 	control_schedule_frame();
 	state_set_wheel_state(&ws);
-	io_status_note_control_received();
 
 	handle_button_b(ws.self_test_btn);
 }
@@ -254,11 +246,23 @@ static void handle_frame(const struct rx_item *item)
 		return;
 	}
 
+	if (frame->id == MSG_ZONE_CTRL) {
+		if (!wheel_frame_valid(frame->data)) {
+			printk("Rejecting zone-control frame with reserved flags set\n");
+			state_note_bad_cmd();
+			return;
+		}
+		state_note_zone_control(item->bus);
+	}
+
 	uint8_t seq = message_sequence(frame->id, frame->data);
 	int source = message_source(frame->id);
 
 	note_source_heartbeat(frame->id, item->bus);
 	if (is_duplicate(frame->id, seq)) {
+		if (frame->id == MSG_ZONE_CTRL) {
+			io_status_note_control_received();
+		}
 		return;
 	}
 	relay_if_source_bus_only(item, source);
@@ -268,11 +272,6 @@ static void handle_frame(const struct rx_item *item)
 		//printk("zone control frame received on bus %c\n", 'A' + item->bus);
 		handle_zone_control(frame->data);
 		break;
-	case MSG_HB_COCKPIT:
-		//printk("cockpit heartbeat frame received on bus %c\n", 'A' + item->bus);
-		decode_heartbeat(frame->data, &hb);
-		state_set_hb_rpi(&hb, item->bus);
-		break;
 	case MSG_HB_STEERING:
 		//printk("steering heartbeat frame received on bus %c\n", 'A' + item->bus);
 		decode_heartbeat(frame->data, &hb);
@@ -281,7 +280,7 @@ static void handle_frame(const struct rx_item *item)
 		break;
 	case MSG_HB_DRIVETRAIN:
 		//printk("drivetrain heartbeat frame received on bus %c\n", 'A' + item->bus);
-		decode_heartbeat(frame->data, &hb);
+		decode_drivetrain_heartbeat(frame->data, &hb);
 		state_set_hb_drivetrain(&hb);
 		break;
 	case MSG_FORCE_FEEDBACK: {
@@ -298,8 +297,8 @@ static void handle_frame(const struct rx_item *item)
 
 		if (decode_blinkers(frame->data, &message)) {
 			/* TEMP debug: when each BLINKER edge arrives, to compare against the other zone */
-			printk("%s BLK rx t=%u bus=%c state=%u on=%d\n", "BACK", k_uptime_get_32(),
-			       'A' + item->bus, message.state, message.leds_on);
+			//printk("%s BLK rx t=%u bus=%c state=%u on=%d\n", "BACK", k_uptime_get_32(),
+			       //'A' + item->bus, message.state, message.leds_on);
 			int rc = blinker_set_message(message.state, message.leds_on);
 
 			if (rc) {
@@ -314,6 +313,10 @@ static void handle_frame(const struct rx_item *item)
 	}
 	default:
 		break;
+	}
+
+	if (frame->id == MSG_ZONE_CTRL) {
+		io_status_note_control_received();
 	}
 }
 

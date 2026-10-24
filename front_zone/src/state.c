@@ -7,7 +7,6 @@ static K_MUTEX_DEFINE(wheel_state_mutex);
 
 static struct wheel_state latest_wheel_state;
 
-static int64_t last_good_frame_ms = -(LINK_TIMEOUT_MS + 1); // for initial alive check
 static uint32_t last_frame_cycle; // for latency measurement
 
 // given on every decoded wheel frame so the control thread wakes right away
@@ -16,8 +15,7 @@ static K_SEM_DEFINE(wheel_frame_sem, 0, 1);
 // Lower-stakes, share mutex
 static K_MUTEX_DEFINE(aux_mutex);
 
-static struct heartbeat latest_hb_rpi;
-static int64_t last_rpi_hb_ms[2] = {
+static int64_t last_zone_ctrl_ms[2] = {
 	-(LINK_TIMEOUT_MS + 1),
 	-(LINK_TIMEOUT_MS + 1),
 };
@@ -34,7 +32,6 @@ void state_set_wheel_state(const struct wheel_state *ws)
 {
 	k_mutex_lock(&wheel_state_mutex, K_FOREVER);
 	latest_wheel_state = *ws;
-	last_good_frame_ms = k_uptime_get();
 	last_frame_cycle = k_cycle_get_32();
 	k_mutex_unlock(&wheel_state_mutex);
 
@@ -63,15 +60,14 @@ void state_get_wheel_state(struct wheel_state *out)
 	k_mutex_unlock(&wheel_state_mutex);
 }
 
-void state_set_hb_rpi(const struct heartbeat *hb, uint8_t bus)
+void state_note_zone_control(uint8_t bus)
 {
-	if (bus >= ARRAY_SIZE(last_rpi_hb_ms)) {
+	if (bus >= ARRAY_SIZE(last_zone_ctrl_ms)) {
 		return;
 	}
 
 	k_mutex_lock(&aux_mutex, K_FOREVER);
-	latest_hb_rpi = *hb;
-	last_rpi_hb_ms[bus] = k_uptime_get();
+	last_zone_ctrl_ms[bus] = k_uptime_get();
 	k_mutex_unlock(&aux_mutex);
 }
 
@@ -134,23 +130,25 @@ bool bad_cmd_active(void)
 // check if link is alive
 bool link_is_alive(void)
 {
-	int64_t last;
+	int64_t now = k_uptime_get();
+	bool alive;
 
-	k_mutex_lock(&wheel_state_mutex, K_FOREVER);
-	last = last_good_frame_ms;
-	k_mutex_unlock(&wheel_state_mutex);
+	k_mutex_lock(&aux_mutex, K_FOREVER);
+	alive = (now - last_zone_ctrl_ms[0] < LINK_TIMEOUT_MS) ||
+		(now - last_zone_ctrl_ms[1] < LINK_TIMEOUT_MS);
+	k_mutex_unlock(&aux_mutex);
 
-	return (k_uptime_get() - last) < LINK_TIMEOUT_MS;
+	return alive;
 }
 
-bool state_rpi_heartbeat_missing_on_both_buses(void)
+bool state_zone_control_missing_on_both_buses(void)
 {
 	bool missing;
 	int64_t now = k_uptime_get();
 
 	k_mutex_lock(&aux_mutex, K_FOREVER);
-	missing = (now - last_rpi_hb_ms[0] >= LINK_TIMEOUT_MS) &&
-		  (now - last_rpi_hb_ms[1] >= LINK_TIMEOUT_MS);
+	missing = (now - last_zone_ctrl_ms[0] >= LINK_TIMEOUT_MS) &&
+		  (now - last_zone_ctrl_ms[1] >= LINK_TIMEOUT_MS);
 	k_mutex_unlock(&aux_mutex);
 
 	return missing;

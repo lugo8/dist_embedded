@@ -18,14 +18,14 @@ bool state_wait_wheel_frame(k_timeout_t timeout);
 /* k_cycle_get_32() taken when the latest wheel frame was stored */
 uint32_t state_wheel_frame_cycle(void);
 
-void state_set_hb_rpi(const struct heartbeat *hb, uint8_t bus);
+void state_note_zone_control(uint8_t bus);
 void state_set_hb_drivetrain(const struct heartbeat *hb);
 void state_set_hb_steering(const struct heartbeat *hb);
 
 void state_set_force_feedback(const struct force_feedback *fb);
 
 bool link_is_alive(void);
-bool state_rpi_heartbeat_missing_on_both_buses(void);
+bool state_zone_control_missing_on_both_buses(void);
 
 void state_note_bad_cmd(void);
 bool bad_cmd_active(void);
