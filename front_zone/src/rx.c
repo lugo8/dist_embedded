@@ -213,8 +213,14 @@ static void relay_if_source_bus_only(const struct rx_item *item, int source)
 		//printk("CAN relay %c->%c failed for 0x%03x: %d\n",
 		       //'A' + from_bus, 'A' + to_bus, item->frame.id, rc);
 		(void)io_status_set_can_degraded(to_bus, true);
-	} else if (io_status_relay_tx()) {
-		printk("Failed to toggle relay TX indicator\n");
+	} else {
+		if (io_status_can_tx(to_bus)) {
+			printk("Failed to toggle CAN %c TX indicator for relay\n",
+			       'A' + to_bus);
+		}
+		if (io_status_relay_tx()) {
+			printk("Failed to toggle relay TX indicator\n");
+		}
 	}
 }
 
