@@ -140,6 +140,25 @@ static pthread_mutex_t tx_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static void dbg_frame(const char *dir, int bus, uint32_t id, const uint8_t *data, int dlc, const char *tag);
 
+// time stuff
+#define NS_PER_MS  1000000LL
+#define NS_PER_SEC 1000000000LL
+
+static int64_t now_ns(void) {
+  struct timespec t;
+  clock_gettime(CLOCK_MONOTONIC, &t);
+  return (int64_t) t.tv_sec * NS_PER_SEC + t.tv_nsec;
+}
+
+// When a bus's TX queue is full (dead bus: nobody ACKs, frames pile up) we stop writing to it and
+// try again every TX_PROBE_MS. Keeps the queue from filling with stale frames that would burst out
+// when the bus comes back. Pair with a short txqueuelen (ip link set canX txqueuelen 2).
+#define TX_PROBE_MS 20
+static int64_t tx_retry_at[2]; // [bus] don't write before this time. Guarded by tx_lock.
+
+#define TX_STATS 1 // mon_thread prints one TXSTAT line per second (per-bus write() results). Set to 0 for timing runs.
+static struct { uint32_t ok, failed, skipped; int last_errno; } tx_stat[2]; // guarded by tx_lock
+
 // send frame on both buses. CAN hardware adds and checks the CRC, so the payload carries none.
 static void can_send_both(uint32_t id, const uint8_t *data, uint8_t dlc) {
   struct can_frame f = {0};
@@ -149,9 +168,23 @@ static void can_send_both(uint32_t id, const uint8_t *data, uint8_t dlc) {
 
   int err[2] = {0, 0};
   pthread_mutex_lock(&tx_lock);
+  int64_t now = now_ns();
   for (int bus = 0; bus < 2; bus++) {
+    if (now < tx_retry_at[bus]) {
+      err[bus] = EAGAIN; // backed off: skip this bus, the other one still carries the frame
+      tx_stat[bus].skipped++;
+      continue;
+    }
     gpio_put(tx_pin[bus], 1);
-    if (write(can_fd[bus], &f, sizeof(f)) < 0) err[bus] = errno; // bus dead / queue full: we just move on
+    if (write(can_fd[bus], &f, sizeof(f)) < 0) {
+      err[bus] = errno;
+      tx_stat[bus].failed++;
+      tx_stat[bus].last_errno = errno;
+      if (errno == ENOBUFS || errno == EAGAIN) tx_retry_at[bus] = now + TX_PROBE_MS * NS_PER_MS;
+    } else {
+      tx_stat[bus].ok++;
+      tx_retry_at[bus] = 0;
+    }
     gpio_put(tx_pin[bus], 0);
   }
   pthread_mutex_unlock(&tx_lock);
@@ -167,16 +200,6 @@ static void can_send_both(uint32_t id, const uint8_t *data, uint8_t dlc) {
 
 static int clamp(int v, int lo, int hi) {
   return v < lo ? lo : (v > hi ? hi : v);
-}
-
-// time stuff
-#define NS_PER_MS  1000000LL
-#define NS_PER_SEC 1000000000LL
-
-static int64_t now_ns(void) {
-  struct timespec t;
-  clock_gettime(CLOCK_MONOTONIC, &t);
-  return (int64_t) t.tv_sec * NS_PER_SEC + t.tv_nsec;
 }
 
 static void sleep_until(int64_t deadline_ns) {
@@ -212,6 +235,7 @@ static int udp_valid = 0;    // a valid UDP update arrived since the error began
 // RX TRACKING 
 static int64_t hb_seen[2][2]; // [bus][peer], peer 0 = N2, 1 = N3. when we last heard its HB
 static int64_t peer_frame[2]; // [bus] when we last heard ANY peer frame on that bus
+static uint32_t rx_cnt[2];    // [bus] peer frames accepted by rx_frame (for the TXSTAT line)
 
 #define DEDUP_MS 100
 enum { K_HB2, K_HB3, K_N };
@@ -393,6 +417,7 @@ static void rx_frame(int bus, const struct can_frame *f) {
   // note when we heard it, before dedup, so a duplicate still shows the bus is alive
   pthread_mutex_lock(&state_lock);
   peer_frame[bus] = now;
+  rx_cnt[bus]++;
   if (peer >= 0) hb_seen[bus][peer] = now;
   pthread_mutex_unlock(&state_lock);
 
@@ -446,6 +471,9 @@ static void *mon_thread(void *arg) {
   (void) arg;
   int64_t next = now_ns();
   int shown_state = -1;
+#if TX_STATS
+  int64_t stats_next = now_ns() + NS_PER_SEC;
+#endif
 
   while (1) {
     next += MON_TICK_MS * NS_PER_MS;
@@ -480,6 +508,22 @@ static void *mon_thread(void *arg) {
 
     gpio_put(PIN_DEG_A, deg[0]);
     gpio_put(PIN_DEG_B, deg[1]);
+
+#if TX_STATS
+    if (now >= stats_next) { // totals since start: compare two lines to see what is moving
+      stats_next += NS_PER_SEC;
+      pthread_mutex_lock(&tx_lock);
+      typeof(tx_stat) ts;
+      memcpy(ts, tx_stat, sizeof(ts));
+      pthread_mutex_unlock(&tx_lock);
+      pthread_mutex_lock(&state_lock);
+      uint32_t rc0 = rx_cnt[0], rc1 = rx_cnt[1];
+      pthread_mutex_unlock(&state_lock);
+      printf("%10.3f TXSTAT A ok=%u fail=%u skip=%u errno=%d(%s) rx=%u | B ok=%u fail=%u skip=%u errno=%d(%s) rx=%u\n",
+             now / 1e6, ts[0].ok, ts[0].failed, ts[0].skipped, ts[0].last_errno, ts[0].last_errno ? strerror(ts[0].last_errno) : "-", rc0,
+             ts[1].ok, ts[1].failed, ts[1].skipped, ts[1].last_errno, ts[1].last_errno ? strerror(ts[1].last_errno) : "-", rc1);
+    }
+#endif
 
     int key = st | (bs << 2) | (alive_n2 << 4) | (alive_n3 << 5) | (uv << 6) | (deg[0] << 7) | (deg[1] << 8);
     if (key != shown_state) { // print on change only
