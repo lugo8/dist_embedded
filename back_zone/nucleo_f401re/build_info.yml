@@ -1,7 +1,0 @@
-west:
-  command: c:\Users\biote\Documents\dist_embedded\dist_embedded\.venv\Scripts\west
-    build -b esp32c3_042_oled/esp32c3 c:/Users/biote/Documents/dist_embedded/dist_embedded/back_zone
-    -p --build-dir c:/Users/biote/Documents/dist_embedded/dist_embedded/back_zone/nucleo_f401re
-    -- -DCONFIG_DEBUG_OPTIMIZATIONS=y -DCONFIG_DEBUG_THREAD_INFO=y
-  topdir: c:\Users\biote\Documents\dist_embedded\dist_embedded
-  version: 1.5.0

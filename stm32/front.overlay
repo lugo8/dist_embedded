@@ -1,0 +1,10 @@
+/* N2, steering zone */
+#include "common.dtsi"
+
+/ {
+	zephyr,user {
+		pwms = <&pwm2 2 PWM_MSEC(20) PWM_POLARITY_NORMAL>; /* SRV, D3 PB3 */
+		relay-tx-gpios = <&gpioc 1 GPIO_ACTIVE_HIGH>;      /* RELAY_TX, A4 PC1 */
+		err-gpios = <&gpioc 0 GPIO_ACTIVE_HIGH>;           /* ERR, A5 PC0 */
+	};
+};
