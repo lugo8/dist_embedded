@@ -15,7 +15,7 @@ TX_INTERVAL_MS = 45
 REMOTE_HOST = "172.26.166.20"
 S_PORT = 8000
 
-LOCAL_HOST = "172.26.92.141" # IP of local interface
+LOCAL_HOST = "172.26.16.162" # IP of local interface
 R_PORT = 8001
 ##
 

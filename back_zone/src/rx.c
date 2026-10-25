@@ -18,6 +18,7 @@
 #define RX_QUEUE_DEPTH 256 /* a Pi burst is ~40 ZONE_CTRL frames per bus */
 #define BUTTON_B_DOUBLE_PRESS_MS 500
 #define RELAY_DUPLICATE_WINDOW_MS LINK_TIMEOUT_MS
+#define CAN_RELAY_ENABLED 0
 
 extern const k_tid_t rx_tid;
 
@@ -49,7 +50,7 @@ static void can_rx_cb(const struct device *dev, struct can_frame *frame,
 	edf_deadline_after_ms(rx_tid, 5, EDF_TIE_CAN_RX);
 	if (k_msgq_put(&rx_q, &it, K_NO_WAIT)) {
 		if (atomic_cas(&rx_overflow_reported, 0, 1)) {
-			// printk("CAN RX software queue full; dropping frames\n");
+			printk("CAN RX software queue full; dropping frames\n");
 		}
 		/* A dropped frame is not a zone fault: the next ZONE_CTRL replaces it. */
 	}
@@ -189,7 +190,7 @@ static bool is_duplicate(uint16_t id, uint8_t seq)
 
 static void relay_if_source_bus_only(const struct rx_item *item, int source)
 {
-	if (source < 0) {
+	if (!CAN_RELAY_ENABLED || source < 0) {
 		return;
 	}
 
@@ -258,13 +259,15 @@ static void handle_frame(const struct rx_item *item)
 	uint8_t seq = message_sequence(frame->id, frame->data);
 	int source = message_source(frame->id);
 
-	note_source_heartbeat(frame->id, item->bus);
 	if (is_duplicate(frame->id, seq)) {
 		if (frame->id == MSG_ZONE_CTRL) {
 			io_status_note_control_received();
 		}
 		return;
 	}
+	/* A relayed copy has the same ID/sequence and must not make its source
+	 * appear directly reachable on the opposite bus. */
+	note_source_heartbeat(frame->id, item->bus);
 	relay_if_source_bus_only(item, source);
 
 	switch (frame->id) {
@@ -326,7 +329,7 @@ static void rx_thread(void *p1, void *p2, void *p3)
 
 	while (1) {
 		k_msgq_get(&rx_q, &it, K_FOREVER);
-		// printk("rx_thread: received frame 0x%03x on bus %c\n", it.frame.id, 'A' + it.bus);
+		printk("rx_thread: received frame 0x%03x on bus %c\n", it.frame.id, 'A' + it.bus);
 		handle_frame(&it);
 	}
 }

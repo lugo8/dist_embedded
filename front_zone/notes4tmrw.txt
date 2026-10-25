@@ -1,4 +1,0 @@
-Claud make the overlay file. 
-Now, just need to adapt everything to CAN messages instead of UART. And do things based on the sent messages.
-
-Then, do same for the back zone
