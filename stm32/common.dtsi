@@ -1,0 +1,63 @@
+/* pins shared by N2 and N3 (team pin reference); front/rear.overlay add the rest */
+/ {
+	blinkers {
+		compatible = "gpio-leds";
+		blink_left: blink_left { gpios = <&gpiob 4 GPIO_ACTIVE_HIGH>; };   /* FL / RL, D5 PB4 */
+		blink_right: blink_right { gpios = <&gpiob 10 GPIO_ACTIVE_HIGH>; }; /* FR / RR, D6 PB10 */
+	};
+
+	zephyr,user {
+		can-rx-a-gpios = <&gpioa 0 GPIO_ACTIVE_HIGH>;  /* CAN_RX_A, A0 PA0 */
+		can-rx-b-gpios = <&gpioa 1 GPIO_ACTIVE_HIGH>;  /* CAN_RX_B, A1 PA1 */
+		can-tx-a-gpios = <&gpioa 4 GPIO_ACTIVE_HIGH>;  /* CAN_TX_A, A2 PA4 */
+		can-tx-b-gpios = <&gpiob 0 GPIO_ACTIVE_HIGH>;  /* CAN_TX_B, A3 PB0 */
+		deg-a-gpios = <&gpioa 8 GPIO_ACTIVE_HIGH>;     /* DEG_A, D7 PA8 */
+		deg-b-gpios = <&gpioa 9 GPIO_ACTIVE_HIGH>;     /* DEG_B, D8 PA9 */
+	};
+};
+
+&spi1 {
+	status = "okay";
+	cs-gpios = <&gpiob 6 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>,  /* CAN A CS: D10 PB6 */
+		   <&gpioc 7 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;  /* CAN B CS: D9 PC7 */
+
+	can_a: mcp2515@0 {
+		compatible = "microchip,mcp2515";
+		reg = <0>;
+		spi-max-frequency = <10000000>;          /* MCP2515 max; STM32 rounds down to 5.25 MHz */
+		int-gpios = <&gpioa 10 GPIO_ACTIVE_LOW>; /* D2 PA10 */
+		osc-freq = <16000000>;                   /* must match the crystal on the module */
+		bitrate = <500000>;
+		status = "okay";
+	};
+
+	can_b: mcp2515@1 {
+		compatible = "microchip,mcp2515";
+		reg = <1>;
+		spi-max-frequency = <10000000>;
+		int-gpios = <&gpiob 5 GPIO_ACTIVE_LOW>;  /* D4 PB5 */
+		osc-freq = <16000000>;
+		bitrate = <500000>;
+		status = "okay";
+	};
+};
+
+/* board defaults that sit on our pins */
+&usart1 { status = "disabled"; }; /* PB6/PB7: PB6 is CAN A CS */
+&i2c3 { status = "disabled"; };   /* PA8/PC9: PA8 is DEG_A */
+&adc1 { status = "disabled"; };   /* PA0: CAN_RX_A */
+
+/* independent watchdog (R4.5) */
+&iwdg { status = "okay"; };
+
+/* TIM2 at 1 MHz (84 MHz / 84), channel 2 on PB3 only, so nothing lands on PA5 (SPI1 SCK) */
+&timers2 {
+	status = "okay";
+	st,prescaler = <83>;
+};
+
+&pwm2 {
+	pinctrl-0 = <&tim2_ch2_pb3>;
+	pinctrl-names = "default";
+	status = "okay";
+};

@@ -1,0 +1,10 @@
+/* N3, drivetrain zone (no ERR test point on N3) */
+#include "common.dtsi"
+
+/ {
+	zephyr,user {
+		pwms = <&pwm2 2 PWM_USEC(100) PWM_POLARITY_NORMAL>; /* PWM_OUT, D3 PB3, 10 kHz */
+		pwm-set-gpios = <&gpioc 1 GPIO_ACTIVE_HIGH>;        /* PWM_SET, A4 PC1 */
+		dir-a-gpios = <&gpioc 0 GPIO_ACTIVE_HIGH>;          /* DIR_A, A5 PC0 */
+	};
+};
