@@ -155,6 +155,7 @@ static int64_t now_ns(void) {
 // when the bus comes back. Pair with a short txqueuelen (ip link set canX txqueuelen 2).
 #define TX_PROBE_MS 20
 static int64_t tx_retry_at[2]; // [bus] don't write before this time. Guarded by tx_lock.
+static int64_t tx_ok_at[2];    // [bus] when write() last succeeded. Guarded by tx_lock. mon_thread uses it for DEG/error.
 
 #define TX_STATS 1 // mon_thread prints one TXSTAT line per second (per-bus write() results). Set to 0 for timing runs.
 static struct { uint32_t ok, failed, skipped; int last_errno; } tx_stat[2]; // guarded by tx_lock
@@ -184,6 +185,7 @@ static void can_send_both(uint32_t id, const uint8_t *data, uint8_t dlc) {
     } else {
       tx_stat[bus].ok++;
       tx_retry_at[bus] = 0;
+      tx_ok_at[bus] = now;
     }
     gpio_put(tx_pin[bus], 0);
   }
@@ -231,6 +233,9 @@ static uint8_t health = 0; // bit0 = bus A degraded, bit1 = bus B
 static int self_test = 0; // set while the wheel test button has failed this zone
 static int in_err = 1;       // are we in the error state
 static int udp_valid = 0;    // a valid UDP update arrived since the error began
+static int udp_lost = 1;     // no UDP update for UDP_TIMEOUT_MS: we count as failed and send no ZONE_CTRL (Lab 1)
+static int64_t last_udp = INT64_MIN; // when the last valid UDP update arrived
+#define UDP_TIMEOUT_MS 100
 
 // RX TRACKING 
 static int64_t hb_seen[2][2]; // [bus][peer], peer 0 = N2, 1 = N3. when we last heard its HB
@@ -293,11 +298,12 @@ static void enter_error(void) {
   }
 }
 
-// Send ZONE_CTRL on both buses. Stays silent while the test button has failed this zone, so the
-// peers see the cockpit heartbeat stop. Takes a new seq every time, also for a keepalive re-send.
+// Send ZONE_CTRL on both buses. Stays silent while the test button has failed this zone or the UDP
+// stream is lost, so the peers see the cockpit heartbeat stop. Takes a new seq every time, also for a
+// keepalive re-send.
 static void send_ctrl(const struct zone_ctrl *src) {
   pthread_mutex_lock(&state_lock);
-  int silent = self_test;
+  int silent = self_test || udp_lost;
   pthread_mutex_unlock(&state_lock);
 
   pthread_mutex_lock(&ctrl_lock);
@@ -447,8 +453,15 @@ static void *rx_thread(void *arg) {
   while (1) {
     poll(pfd, 2, -1); // sleep until a frame shows up on either bus
     for (int bus = 0; bus < 2; bus++) {
-      if (pfd[bus].revents & (POLLERR | POLLHUP | POLLNVAL)) {
-        sleep_until(now_ns() + NS_PER_MS);
+      if (pfd[bus].revents & POLLERR) {
+        // Interface went down (ENETDOWN etc.). The error stays pending until read() or SO_ERROR
+        // takes it, and until then poll() keeps returning POLLERR. Clear it, then read as usual.
+        int e;
+        socklen_t len = sizeof(e);
+        getsockopt(can_fd[bus], SOL_SOCKET, SO_ERROR, &e, &len);
+      }
+      if (pfd[bus].revents & (POLLHUP | POLLNVAL)) {
+        sleep_until(now_ns() + NS_PER_MS); // don't spin on a socket that can't recover
         continue;
       }
       struct can_frame f;
@@ -480,6 +493,13 @@ static void *mon_thread(void *arg) {
     sleep_until(next);
     int64_t now = now_ns();
 
+    // can we still transmit? write() keeps failing (ENOBUFS) on a bus nobody ACKs or whose
+    // controller is stuck, and the backoff skips it, so no success for HB_MISS_MS = can't send there
+    int tx_ok[2];
+    pthread_mutex_lock(&tx_lock);
+    for (int b = 0; b < 2; b++) tx_ok[b] = recent(tx_ok_at[b], now);
+    pthread_mutex_unlock(&tx_lock);
+
     pthread_mutex_lock(&state_lock);
 
     // check if zone is alive
@@ -487,16 +507,20 @@ static void *mon_thread(void *arg) {
     int alive_n3 = recent(hb_seen[0][1], now) || recent(hb_seen[1][1], now);
     int all_alive = alive_n2 && alive_n3;
 
-    // a bus is degraded if no peer frame at all came in on it recently. Clears on the next frame.
+    // a bus is degraded if no peer frame came in on it recently, or we can't write to it. Clears on its own.
     int deg[2];
-    for (int b = 0; b < 2; b++) deg[b] = !recent(peer_frame[b], now);
+    for (int b = 0; b < 2; b++) deg[b] = !recent(peer_frame[b], now) || !tx_ok[b];
     health = (deg[0] ? 1 : 0) | (deg[1] ? 2 : 0);
+    int can_tx = tx_ok[0] || tx_ok[1]; // our ZONE_CTRL reaches the peers on at least one bus
 
-    // enter: a peer went silent on both buses
-    if (!in_err && !all_alive) enter_error();
+    // UDP stream lost: fail this zone (send_ctrl goes silent) until an update arrives again
+    udp_lost = !(last_udp != INT64_MIN && (now - last_udp) < UDP_TIMEOUT_MS * NS_PER_MS);
 
-    // exit: no local fault, both peers alive, valid UDP update since the error began
-    if (in_err && !self_test && all_alive && udp_valid) {
+    // enter: a peer went silent on both buses, we can't transmit on either bus, or the UDP stream stopped
+    if (!in_err && (!all_alive || !can_tx || udp_lost)) enter_error();
+
+    // exit: no local fault, both peers alive, we can transmit, valid UDP update since the error began
+    if (in_err && !self_test && all_alive && can_tx && !udp_lost && udp_valid) {
       in_err = 0;
       bl_hazard(0);
     }
@@ -504,6 +528,7 @@ static void *mon_thread(void *arg) {
     int st = !in_err ? 0 : (self_test ? 2 : 1); // 0 = normal, 1 = error, 2 = self-test
     int bs = bl_state;
     int uv = udp_valid;
+    int ul = udp_lost;
     pthread_mutex_unlock(&state_lock);
 
     gpio_put(PIN_DEG_A, deg[0]);
@@ -525,12 +550,12 @@ static void *mon_thread(void *arg) {
     }
 #endif
 
-    int key = st | (bs << 2) | (alive_n2 << 4) | (alive_n3 << 5) | (uv << 6) | (deg[0] << 7) | (deg[1] << 8);
+    int key = st | (bs << 2) | (alive_n2 << 4) | (alive_n3 << 5) | (uv << 6) | (deg[0] << 7) | (deg[1] << 8) | (tx_ok[0] << 9) | (tx_ok[1] << 10) | (ul << 11);
     if (key != shown_state) { // print on change only
       static const char *const st_name[] = {"NORMAL", "ERROR", "SELF_TEST"};
       static const char *const bl_name[] = {"OFF", "LEFT", "RIGHT", "HAZARD"};
-      printf("%10.3f STATE %s blinker=%s n2=%d n3=%d udp=%d degA=%d degB=%d\n", now / 1e6, st_name[st],
-             bl_name[bs], alive_n2, alive_n3, uv, deg[0], deg[1]);
+      printf("%10.3f STATE %s blinker=%s n2=%d n3=%d udp=%d udpLost=%d txA=%d txB=%d degA=%d degB=%d\n", now / 1e6,
+             st_name[st], bl_name[bs], alive_n2, alive_n3, uv, ul, tx_ok[0], tx_ok[1], deg[0], deg[1]);
       shown_state = key;
     }
   }
@@ -551,6 +576,7 @@ int main(int argc, char **argv) {
   for (int b = 0; b < 2; b++) {
     hb_seen[b][0] = hb_seen[b][1] = INT64_MIN;
     peer_frame[b] = now_ns(); // start of a short grace period (used for the DEG logic later)
+    tx_ok_at[b] = now_ns();   // same grace for TX, until the first writes report back
   }
 
   for (int k = 0; k < K_N; k++) dd[k].t = INT64_MIN;
@@ -635,6 +661,12 @@ int main(int argc, char **argv) {
     if (state.rgbButtons[1]) c.buttons |= 1 << CTRL_BTN_B;
     if (state.rgbButtons[2]) c.buttons |= 1 << CTRL_BTN_X;
     if (state.rgbButtons[3]) c.buttons |= 1 << CTRL_BTN_Y;
+
+    // stream is back: un-silence ZONE_CTRL before sending, so this very update goes out
+    pthread_mutex_lock(&state_lock);
+    last_udp = now_ns();
+    udp_lost = 0;
+    pthread_mutex_unlock(&state_lock);
 
     send_ctrl(&c);
 

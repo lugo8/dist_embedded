@@ -84,7 +84,9 @@ static void send_heartbeat(uint8_t seq)
 	frame.data[HB_DRIVETRAIN_SEQ] = seq;
 
 	for (int bus = 0; bus < CAN_BUS_COUNT; bus++) {
-		int rc = can_send(can_dev[bus], &frame, K_MSEC(5), heartbeat_tx_cb,
+		/* K_NO_WAIT: a dead bus keeps its TX buffers full forever (the MCP2515 driver
+		 * never fails an un-ACKed frame), and waiting on it delays the other bus. */
+		int rc = can_send(can_dev[bus], &frame, K_NO_WAIT, heartbeat_tx_cb,
 				  (void *)(intptr_t)bus);
 
 		if (rc) {

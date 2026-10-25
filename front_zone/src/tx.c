@@ -93,7 +93,9 @@ static void send_heartbeat(uint8_t seq)
 
 	for (int bus = 0; bus < CAN_BUS_COUNT; bus++) {
 		int64_t t = k_uptime_get();
-		int rc = can_send(can_dev[bus], &frame, K_MSEC(5), heartbeat_tx_cb,
+		/* K_NO_WAIT: a dead bus keeps its TX buffers full forever (the MCP2515 driver
+		 * never fails an un-ACKed frame), and waiting on it delays the other bus. */
+		int rc = can_send(can_dev[bus], &frame, K_NO_WAIT, heartbeat_tx_cb,
 				  (void *)(intptr_t)bus);
 
 		dbg_tx_ms[bus] = k_uptime_get() - t;

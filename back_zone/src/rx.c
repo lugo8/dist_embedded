@@ -206,7 +206,9 @@ static void relay_if_source_bus_only(const struct rx_item *item, int source)
 		return;
 	}
 
-	int rc = can_send(can_dev[to_bus], &item->frame, K_MSEC(5), NULL, NULL);
+	/* K_NO_WAIT: the MCP2515 driver never fails an un-ACKed frame, so on a dead bus
+	 * all 3 TX buffers stay full and a timeout would just stall this thread. */
+	int rc = can_send(can_dev[to_bus], &item->frame, K_NO_WAIT, NULL, NULL);
 
 	if (rc) {
 		// printk("CAN relay %c->%c failed for 0x%03x: %d\n",
