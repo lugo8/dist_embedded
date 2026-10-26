@@ -16,7 +16,8 @@ static const struct device *const wdt = DEVICE_DT_GET(DT_NODELABEL(iwdg));
 
 /* shared with the dispatch path and the actuator tasks; times in ms, 0 = never */
 static K_MUTEX_DEFINE(lock);
-static int64_t hb_ms[4][2]; /* [zone][bus] last heartbeat */
+static int64_t hb_ms[4][2]; /* [zone][bus] last heartbeat, direct or relayed */
+static int64_t direct_ms[4][2]; /* [zone][bus] last heartbeat heard straight from that zone */
 static int64_t any_ms[2];   /* [bus] last frame from any other zone */
 static int64_t ctrl_ms;     /* last valid CTRL */
 static int64_t bad_cmd_ms;  /* last out-of-range CTRL */
@@ -58,7 +59,7 @@ static void enter_error(int zone, int reason)
 	send_both(ID_FAULT, &fault_seq, d);
 }
 
-void monitor_rx(int bus, int zone, bool hb)
+void monitor_rx(int bus, int zone, bool hb, bool relayed)
 {
 	int64_t now = k_uptime_get();
 
@@ -66,6 +67,9 @@ void monitor_rx(int bus, int zone, bool hb)
 	any_ms[bus] = now;
 	if (hb) {
 		hb_ms[zone][bus] = now;
+		if (!relayed) {
+			direct_ms[zone][bus] = now;
+		}
 	}
 	k_mutex_unlock(&lock);
 }
@@ -99,7 +103,8 @@ bool monitor_in_error(void)
 bool monitor_hb_on_bus(int zone, int bus)
 {
 	k_mutex_lock(&lock, K_FOREVER);
-	bool on = recent(hb_ms[zone][bus], k_uptime_get(), RELAY_DETECT_MS);
+	/* direct only: another relay's copies must not switch this relay off */
+	bool on = recent(direct_ms[zone][bus], k_uptime_get(), RELAY_DETECT_MS);
 	k_mutex_unlock(&lock);
 	return on;
 }

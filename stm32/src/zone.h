@@ -29,7 +29,7 @@
 #define BAD_CMD_HOLD_MS 1000 /* stay in error this long after an out-of-range CTRL */
 #define BLINK_HALF_MS   500  /* 1 Hz (R2.4) */
 #define BLINK_STALE_MS  1000 /* no BLINK for this long: the cockpit is gone */
-#define DEBOUNCE_MS     20
+#define DEBOUNCE_MS     50   /* presses closer than 50 ms count as one (R2.5) */
 #define DOUBLE_PRESS_MS 500
 #define WDT_TIMEOUT_MS  100
 #define FORCE_PERIOD_MS 50
@@ -39,7 +39,7 @@
  * Fixed priorities, deadline-monotonic (lower number = higher priority).
  * The MCP2515 driver thread is 2 (CONFIG_CAN_MCP2515_INT_THREAD_PRIO), above all of these.
  */
-#define PRIO_RELAY    3 /* on the brake path in scenario (c) */
+#define PRIO_RELAY    3 /* on the brake path whenever a relay is active */
 #define PRIO_DISPATCH 4 /* CAN_RX, 0.3 ms */
 #define PRIO_ACT      5 /* DRIVE / STEER / BLINK, 0.5-1 ms */
 #define PRIO_BTN      6 /* TEST_BTN, 10 ms */
@@ -53,7 +53,7 @@ void send_both(uint16_t id, atomic_t *seq, uint8_t d[MSG_DLC]);
 
 /* monitor.c */
 int monitor_init(void);
-void monitor_rx(int bus, int zone, bool hb);
+void monitor_rx(int bus, int zone, bool hb, bool relayed);
 void monitor_ctrl(bool valid);
 bool monitor_in_error(void);
 bool monitor_hb_on_bus(int zone, int bus);

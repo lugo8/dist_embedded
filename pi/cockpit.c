@@ -44,6 +44,7 @@
 #define DOUBLE_PRESS_MS  500
 #define FORCE_LIMIT      20  /* force is a dummy counter: keep the wheel from jerking */
 #define TX_PROBE_MS      100 /* send rate on a bus we hear nobody on */
+#define UDP_TIMEOUT_MS   100 /* no wheel update this long: cockpit treats itself as failed (lab 1 reqs) */
 
 /* test points (BCM numbers); must not be the MCP2515 INT pins in config.txt */
 #define PIN_UDP_RX 22 /* header pin 15 */
@@ -152,7 +153,8 @@ static int can_open(const char *ifname)
 static int skip_bus(int bus, int64_t now);
 
 /* queue one frame on both buses back to back; seq goes up once per message, not per bus */
-static void send_both(uint16_t id, uint8_t *seq, uint8_t d[MSG_DLC])
+/* mark: a test pin raised right after the first write returns (CMD_TX for CTRL), or -1 */
+static void send_both(uint16_t id, uint8_t *seq, uint8_t d[MSG_DLC], int mark)
 {
 	struct can_frame f = { .can_id = id, .can_dlc = MSG_DLC };
 
@@ -171,6 +173,10 @@ static void send_both(uint16_t id, uint8_t *seq, uint8_t d[MSG_DLC])
 			/* dead or full bus: the other bus still carries this frame */
 		}
 		gpio_put(tx_pin[bus], 0);
+		if (mark >= 0) {
+			gpio_put(mark, 1);
+			mark = -1;
+		}
 	}
 	pthread_mutex_unlock(&tx_lock);
 }
@@ -182,6 +188,7 @@ static int64_t any_ms[2];    /* [bus] last frame from any other zone */
 static int in_error = 1;     /* power up in error (R3) */
 static int self_test;        /* wheel test button has failed this zone */
 static int udp_since_error;  /* a valid wheel update arrived since the error began */
+static int64_t udp_ms;       /* last wheel update, 0 = never */
 static int deg[2];
 static int bl_state = BLINK_HAZARD, bl_phase = 1, bl_changed = 1, bl_passed;
 static struct sockaddr_in proxy_addr; /* where force goes, learned from the wheel packets */
@@ -256,7 +263,7 @@ static void send_fault(int zone, int reason)
 	static uint8_t seq;
 	uint8_t d[MSG_DLC] = { 0, zone, reason, ZONE_N1 };
 
-	send_both(ID_FAULT, &seq, d);
+	send_both(ID_FAULT, &seq, d, -1);
 	printf("FAULT sent: zone %d reason %d\n", zone, reason);
 }
 
@@ -272,13 +279,15 @@ static void *hb_tx_thread(void *arg)
 		sleep_until_ms(next);
 
 		pthread_mutex_lock(&lock);
-		int quiet = self_test;
+		int64_t now = now_ms();
+		/* stream lost: stop the heartbeat so N2/N3 see the cockpit as failed */
+		int quiet = self_test || !(udp_ms > 0 && now - udp_ms < UDP_TIMEOUT_MS);
 		uint8_t d[MSG_DLC] = { 0, in_error ? STATE_ERROR : STATE_NORMAL,
 				       (deg[0] ? HEALTH_A_DEG : 0) | (deg[1] ? HEALTH_B_DEG : 0) };
 		pthread_mutex_unlock(&lock);
 
 		if (!quiet) {
-			send_both(ID_HB_N1, &seq, d); /* silence is how the others see the test button */
+			send_both(ID_HB_N1, &seq, d, -1); /* silence is how the others see the test button */
 		}
 	}
 	return NULL;
@@ -300,12 +309,14 @@ static void *mon_thread(void *arg)
 		int n2 = recent(hb_ms[ZONE_N2][0], now) || recent(hb_ms[ZONE_N2][1], now);
 		int n3 = recent(hb_ms[ZONE_N3][0], now) || recent(hb_ms[ZONE_N3][1], now);
 		int lost = !n2 ? ZONE_N2 : (!n3 ? ZONE_N3 : 0);
+		int udp_ok = udp_ms > 0 && now - udp_ms < UDP_TIMEOUT_MS;
 
 		for (int b = 0; b < 2; b++) {
 			deg[b] = !(any_ms[b] > 0 && now - any_ms[b] < DEG_TIMEOUT_MS);
 		}
 		int fault = lost && enter_error();
-		if (in_error && !lost && !self_test && udp_since_error) {
+		int udp_fault = !lost && !udp_ok && enter_error();
+		if (in_error && !lost && udp_ok && !self_test && udp_since_error) {
 			in_error = 0;
 			set_blink(BLINK_OFF);
 		}
@@ -324,6 +335,9 @@ static void *mon_thread(void *arg)
 		gpio_put(PIN_DEG_B, d1);
 		if (fault) {
 			send_fault(lost, FAULT_HB_LOST);
+		}
+		if (udp_fault) {
+			send_fault(ZONE_N1, FAULT_CTRL_LOST);
 		}
 
 		int state = err | n2 << 1 | n3 << 2 | d0 << 3 | d1 << 4;
@@ -362,7 +376,7 @@ static void *blink_thread(void *arg)
 		pthread_mutex_unlock(&lock);
 
 		if (send) {
-			send_both(ID_BLINK, &seq, d);
+			send_both(ID_BLINK, &seq, d, -1);
 			last_tx = now;
 		}
 	}
@@ -524,8 +538,8 @@ int main(void)
 
 		uint8_t d[MSG_DLC] = { 0 };
 		ctrl_encode(&c, d);
-		gpio_put(PIN_CMD_TX, 1);
-		send_both(ID_CTRL, &ctrl_seq, d);
+		/* CMD_TX rises right after the first CAN write returns: the Pi stage's stop edge */
+		send_both(ID_CTRL, &ctrl_seq, d, PIN_CMD_TX);
 		gpio_put(PIN_CMD_TX, 0);
 
 		/* bookkeeping after the frame is out, so it stays off the brake path */
@@ -537,6 +551,7 @@ int main(void)
 		proxy_addr.sin_port = htons(FORCE_PORT);
 		have_proxy = 1;
 		udp_since_error = 1;
+		udp_ms = now;
 		if (left && !prev_left && bl_state != BLINK_HAZARD) {
 			set_blink(BLINK_LEFT);
 		}

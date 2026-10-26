@@ -1,4 +1,4 @@
-/* both CAN controllers: receive + dedup + dispatch (CAN_RX), send on both buses, RELAY (N2) */
+/* both CAN controllers: receive + dedup + dispatch (CAN_RX), send on both buses, RELAY */
 #include <string.h>
 #include <zephyr/drivers/can.h>
 #include <zephyr/drivers/gpio.h>
@@ -65,16 +65,17 @@ void send_both(uint16_t id, atomic_t *seq, uint8_t d[MSG_DLC])
 	}
 }
 
-#ifdef ZONE_FRONT
-static const struct gpio_dt_spec relay_pin = GPIO_DT_SPEC_GET(USER, relay_tx_gpios);
+/* RELAY_TX is a test point on N2 only; N3 uses that pin for PWM_SET */
+static const struct gpio_dt_spec relay_pin = GPIO_DT_SPEC_GET_OR(USER, relay_tx_gpios, {0});
 
 K_MSGQ_DEFINE(relay_q, sizeof(struct rx_item), 16, 4);
 
 /*
- * Forward-on-detect: once a zone's heartbeat is missing on one bus while it is still
- * talking on the other, everything it sends is copied across. Only N2 relays, so a
- * relayed copy never comes back to be relayed again, and a receiver that also got the
- * direct copy drops the relayed one as a duplicate.
+ * Forward-on-detect, on both STM32s: once a zone's own heartbeat is missing on one bus
+ * while it is still talking on the other, everything it sends is copied across. N2
+ * relays in checkoff cases 1-2, N3 in cases 3-4. A forwarded copy carries FLAG_RELAYED
+ * and is never forwarded again, so two relays can't bounce a frame between them, and a
+ * receiver that also got the direct copy drops the relayed one as a duplicate.
  */
 static void relay_offer(const struct rx_item *it, int zone)
 {
@@ -84,6 +85,7 @@ static void relay_offer(const struct rx_item *it, int zone)
 		return;
 	}
 	struct rx_item out = { .f = it->f, .bus = to };
+	out.f.data[0] |= FLAG_RELAYED;
 	k_msgq_put(&relay_q, &out, K_NO_WAIT);
 }
 
@@ -93,14 +95,17 @@ static void relay_task(void *p1, void *p2, void *p3)
 
 	while (1) {
 		k_msgq_get(&relay_q, &it, K_FOREVER);
-		gpio_pin_set_dt(&relay_pin, 1);
+		if (relay_pin.port) {
+			gpio_pin_set_dt(&relay_pin, 1);
+		}
 		can_send(can_dev[it.bus], &it.f, TX_WAIT, tx_done, NULL);
-		gpio_pin_set_dt(&relay_pin, 0);
+		if (relay_pin.port) {
+			gpio_pin_set_dt(&relay_pin, 0);
+		}
 	}
 }
 
 K_THREAD_DEFINE(relay_tid, 1024, relay_task, NULL, NULL, NULL, PRIO_RELAY, 0, SYS_FOREVER_MS);
-#endif
 
 static struct dedup dd[MSG_COUNT];
 
@@ -114,14 +119,16 @@ static void handle(const struct rx_item *it)
 	    zone < ZONE_N1 || zone > ZONE_N3) {
 		return;
 	}
+	bool relayed = f->data[0] & FLAG_RELAYED;
+
 	/* both copies count for liveness, only the first one goes on to the tasks */
-	monitor_rx(it->bus, zone, is_hb(f->id));
+	monitor_rx(it->bus, zone, is_hb(f->id), relayed);
 	if (dedup_is_copy(&dd[idx], SEQ(f->data), it->bus)) {
 		return;
 	}
-#ifdef ZONE_FRONT
-	relay_offer(it, zone);
-#endif
+	if (!relayed) {
+		relay_offer(it, zone);
+	}
 
 	switch (f->id) {
 	case ID_CTRL: {
@@ -171,12 +178,10 @@ int can_io_init(void)
 			return -ENODEV;
 		}
 	}
-#ifdef ZONE_FRONT
-	if (gpio_pin_configure_dt(&relay_pin, GPIO_OUTPUT_INACTIVE)) {
+	if (relay_pin.port && gpio_pin_configure_dt(&relay_pin, GPIO_OUTPUT_INACTIVE)) {
 		return -ENODEV;
 	}
 	k_thread_start(relay_tid);
-#endif
 	k_thread_start(dispatch_tid);
 
 	for (int bus = 0; bus < 2; bus++) {

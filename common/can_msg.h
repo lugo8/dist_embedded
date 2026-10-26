@@ -21,6 +21,7 @@
 #define MSG_COUNT 7
 
 #define SEQ(d) ((d)[0] & 0x0F)
+#define FLAG_RELAYED 0x10 /* byte 0 flag: this copy was forwarded by a relay; never forward it again */
 
 enum { ZONE_N1 = 1, ZONE_N2 = 2, ZONE_N3 = 3 };
 enum { BLINK_OFF, BLINK_LEFT, BLINK_RIGHT, BLINK_HAZARD };
