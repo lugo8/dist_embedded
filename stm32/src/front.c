@@ -18,7 +18,8 @@ void actuator_ctrl(const struct ctrl *c)
 
 void actuator_error(void)
 {
-	/* steering keeps following the wheel in the error state */
+	/* steering keeps following the wheel in the error state, unless this zone's
+	 * own test button failed it (STEER holds the servo then) */
 }
 
 /* STEER: -450..450 deg -> 1..2 ms servo pulse */
@@ -26,6 +27,9 @@ static void steer_task(void *p1, void *p2, void *p3)
 {
 	while (1) {
 		k_sem_take(&ctrl_sem, K_FOREVER);
+		if (monitor_self_test()) {
+			continue; /* this zone failed itself: hold the servo (R3) */
+		}
 		k_mutex_lock(&ctrl_lock, K_FOREVER);
 		int steer = latest.steer;
 		k_mutex_unlock(&ctrl_lock);

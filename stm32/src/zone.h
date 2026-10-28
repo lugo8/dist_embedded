@@ -28,6 +28,7 @@
 #define MON_PERIOD_MS   10
 #define BAD_CMD_HOLD_MS 1000 /* stay in error this long after an out-of-range CTRL */
 #define BLINK_HALF_MS   500  /* 1 Hz (R2.4) */
+#define HAZARD_HALF_MS  250  /* 2 Hz hazard pattern (S4, via R3) */
 #define BLINK_STALE_MS  1000 /* no BLINK for this long: the cockpit is gone */
 #define DEBOUNCE_MS     50   /* presses closer than 50 ms count as one (R2.5) */
 #define DOUBLE_PRESS_MS 500
@@ -56,6 +57,7 @@ int monitor_init(void);
 void monitor_rx(int bus, int zone, bool hb, bool relayed);
 void monitor_ctrl(bool valid);
 bool monitor_in_error(void);
+bool monitor_self_test(void);
 bool monitor_hb_on_bus(int zone, int bus);
 bool monitor_bus_degraded(int bus);
 

@@ -100,6 +100,15 @@ bool monitor_in_error(void)
 	return e;
 }
 
+/* true while this zone's test button has failed it */
+bool monitor_self_test(void)
+{
+	k_mutex_lock(&lock, K_FOREVER);
+	bool t = self_test;
+	k_mutex_unlock(&lock);
+	return t;
+}
+
 bool monitor_hb_on_bus(int zone, int bus)
 {
 	k_mutex_lock(&lock, K_FOREVER);

@@ -47,7 +47,7 @@ static void blink_task(void *p1, void *p2, void *p3)
 			/* our own error without the cockpit's hazard pattern to follow */
 			if (now >= local_next) {
 				local_on = !local_on;
-				local_next = now + BLINK_HALF_MS;
+				local_next = now + HAZARD_HALF_MS;
 			}
 			l = r = local_on;
 		} else {

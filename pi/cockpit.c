@@ -39,6 +39,7 @@
 #define MON_PERIOD_MS    10
 #define BLINK_TICK_MS    10
 #define BLINK_HALF_MS    500 /* 1 Hz (R2.4) */
+#define HAZARD_HALF_MS   250 /* 2 Hz hazard pattern (S4, via R3) */
 #define BLINK_MIN_GAP_MS 20  /* BLINK minimum interarrival (catalog) */
 #define TURN_CANCEL_DEG  150 /* turn signal cancels after the wheel passes this and comes back */
 #define DOUBLE_PRESS_MS  500
@@ -363,14 +364,16 @@ static void *blink_thread(void *arg)
 		int send = 0;
 
 		pthread_mutex_lock(&lock);
+		int half = bl_state == BLINK_HAZARD ? HAZARD_HALF_MS : BLINK_HALF_MS;
+
 		if (bl_changed && now - last_tx >= BLINK_MIN_GAP_MS) {
 			bl_changed = 0;
 			send = 1;
-			next_flip = now + BLINK_HALF_MS;
+			next_flip = now + half;
 		} else if (!bl_changed && bl_state != BLINK_OFF && now >= next_flip) {
 			bl_phase ^= 1;
 			send = 1;
-			next_flip = now + BLINK_HALF_MS;
+			next_flip = now + half;
 		}
 		uint8_t d[MSG_DLC] = { 0, bl_state, bl_phase };
 		pthread_mutex_unlock(&lock);
