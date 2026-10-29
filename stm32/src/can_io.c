@@ -81,6 +81,17 @@ static void relay_offer(const struct rx_item *it, int zone)
 {
 	int to = 1 - it->bus;
 
+#ifndef ZONE_FRONT
+	/*
+	 * N2 is the main relay; N3 steps in only when N2 is missing from a bus (cases 3-4).
+	 * If both relayed the same frame onto a bus where only they are left (N1 pulled),
+	 * nobody would be receiving to ACK it: both retransmit in lockstep forever and
+	 * the bus jams.
+	 */
+	if (monitor_hb_on_bus(ZONE_N2, 0) && monitor_hb_on_bus(ZONE_N2, 1)) {
+		return;
+	}
+#endif
 	if (monitor_hb_on_bus(zone, to) || monitor_bus_degraded(to)) {
 		return;
 	}
