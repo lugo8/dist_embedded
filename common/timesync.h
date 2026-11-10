@@ -30,6 +30,7 @@
 #define TS_SLEW_US        100000  /* a phase error is worked off over 100 ms */
 #define TS_MAX_SLEW_PPB   1000000 /* at most 1000 ppm on top of the drift */
 #define TS_MAX_DRIFT_PPB  500000  /* reject drift estimates beyond 500 ppm */
+#define TS_MASTER_MAX_PPB 200000  /* crystals are within ~50 ppm: a new master keeps at most 200 */
 #define TS_STEP_US        2000    /* errors larger than this step instead of slewing */
 #define TS_LOCK_LOST_US   100000  /* no sync this long: SYNC off, free-run */
 #ifndef TS_RX_DELAY_US

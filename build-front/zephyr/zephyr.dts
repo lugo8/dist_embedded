@@ -218,7 +218,7 @@
 				#gpio-cells = < 0x2 >;        /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:212 */
 				reg = < 0x40020000 0x400 >;   /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:213 */
 				clocks = < &rcc 0x30 0x1 >;   /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:214 */
-				phandle = < 0x12 >;           /* in 18-649-lab3/stm32/common.dtsi:28 */
+				phandle = < 0x12 >;           /* in dist_embedded/stm32/common.dtsi:33 */
 			};
 
 			/* node '/soc/pin-controller@40020000/gpio@40020400' defined in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:217 */
@@ -228,7 +228,7 @@
 				#gpio-cells = < 0x2 >;        /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:220 */
 				reg = < 0x40020400 0x400 >;   /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:221 */
 				clocks = < &rcc 0x30 0x2 >;   /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:222 */
-				phandle = < 0x10 >;           /* in 18-649-lab3/stm32/common.dtsi:21 */
+				phandle = < 0x10 >;           /* in dist_embedded/stm32/common.dtsi:26 */
 			};
 
 			/* node '/soc/pin-controller@40020000/gpio@40020800' defined in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:225 */
@@ -238,7 +238,7 @@
 				#gpio-cells = < 0x2 >;        /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:228 */
 				reg = < 0x40020800 0x400 >;   /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:229 */
 				clocks = < &rcc 0x30 0x4 >;   /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:230 */
-				phandle = < 0x11 >;           /* in 18-649-lab3/stm32/common.dtsi:21 */
+				phandle = < 0x11 >;           /* in dist_embedded/stm32/common.dtsi:26 */
 			};
 
 			/* node '/soc/pin-controller@40020000/gpio@40020c00' defined in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:233 */
@@ -385,7 +385,7 @@
 			/* node '/soc/pin-controller@40020000/tim2_ch2_pb3' defined in external/modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:756 */
 			tim2_ch2_pb3: tim2_ch2_pb3 {
 				pinmux = < 0x261 >; /* in external/modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:757 */
-				phandle = < 0x14 >; /* in 18-649-lab3/stm32/common.dtsi:60 */
+				phandle = < 0x14 >; /* in dist_embedded/stm32/common.dtsi:66 */
 			};
 
 			/* node '/soc/pin-controller@40020000/usart1_rx_pb7' defined in external/modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:874 */
@@ -419,7 +419,7 @@
 		iwdg: watchdog@40003000 {
 			compatible = "st,stm32-watchdog"; /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:275 */
 			reg = < 0x40003000 0x400 >;       /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:276 */
-			status = "okay";                  /* in 18-649-lab3/stm32/common.dtsi:51 */
+			status = "okay";                  /* in dist_embedded/stm32/common.dtsi:57 */
 		};
 
 		/* node '/soc/watchdog@40002c00' defined in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:280 */
@@ -442,7 +442,7 @@
 			pinctrl-0 = < &usart1_tx_pb6 &usart1_rx_pb7 >; /* in external/zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:93 */
 			pinctrl-names = "default";                     /* in external/zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:94 */
 			current-speed = < 0x1c200 >;                   /* in external/zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:95 */
-			status = "disabled";                           /* in 18-649-lab3/stm32/common.dtsi:46 */
+			status = "disabled";                           /* in dist_embedded/stm32/common.dtsi:51 */
 		};
 
 		/* node '/soc/serial@40004400' defined in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:297 */
@@ -483,8 +483,8 @@
 			                  "error";                   /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:323 */
 			pinctrl-0 = < &i2c1_scl_pb8 &i2c1_sda_pb9 >; /* in external/zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:107 */
 			pinctrl-names = "default";                   /* in external/zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:108 */
-			status = "okay";                             /* in external/zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:109 */
 			clock-frequency = < 0x61a80 >;               /* in external/zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:110 */
+			status = "disabled";                         /* in dist_embedded/stm32/common.dtsi:53 */
 			phandle = < 0x21 >;                          /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:705 */
 		};
 
@@ -518,7 +518,7 @@
 			pinctrl-0 = < &i2c3_scl_pa8 &i2c3_sda_pc9 >; /* in external/zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:114 */
 			pinctrl-names = "default";                   /* in external/zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:115 */
 			clock-frequency = < 0x61a80 >;               /* in external/zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:117 */
-			status = "disabled";                         /* in 18-649-lab3/stm32/common.dtsi:47 */
+			status = "disabled";                         /* in dist_embedded/stm32/common.dtsi:52 */
 			phandle = < 0x23 >;                          /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:721 */
 		};
 
@@ -533,30 +533,30 @@
 			st,spi-data-width = "limited-8-16-bit";                      /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:358 */
 			pinctrl-0 = < &spi1_sck_pa5 &spi1_miso_pa6 &spi1_mosi_pa7 >; /* in external/zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:121 */
 			pinctrl-names = "default";                                   /* in external/zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:122 */
-			status = "okay";                                             /* in 18-649-lab3/stm32/common.dtsi:20 */
+			status = "okay";                                             /* in dist_embedded/stm32/common.dtsi:25 */
 			cs-gpios = < &gpiob 0x6 0x11 >,
-			           < &gpioc 0x7 0x11 >;                              /* in 18-649-lab3/stm32/common.dtsi:21 */
+			           < &gpioc 0x7 0x11 >;                              /* in dist_embedded/stm32/common.dtsi:26 */
 
-			/* node '/soc/spi@40013000/mcp2515@0' defined in 18-649-lab3/stm32/common.dtsi:24 */
+			/* node '/soc/spi@40013000/mcp2515@0' defined in dist_embedded/stm32/common.dtsi:29 */
 			can_a: mcp2515@0 {
-				compatible = "microchip,mcp2515"; /* in 18-649-lab3/stm32/common.dtsi:25 */
-				reg = < 0x0 >;                    /* in 18-649-lab3/stm32/common.dtsi:26 */
-				spi-max-frequency = < 0x989680 >; /* in 18-649-lab3/stm32/common.dtsi:27 */
-				int-gpios = < &gpioa 0xa 0x1 >;   /* in 18-649-lab3/stm32/common.dtsi:28 */
-				osc-freq = < 0xf42400 >;          /* in 18-649-lab3/stm32/common.dtsi:29 */
-				bitrate = < 0x7a120 >;            /* in 18-649-lab3/stm32/common.dtsi:30 */
-				status = "okay";                  /* in 18-649-lab3/stm32/common.dtsi:31 */
+				compatible = "microchip,mcp2515"; /* in dist_embedded/stm32/common.dtsi:30 */
+				reg = < 0x0 >;                    /* in dist_embedded/stm32/common.dtsi:31 */
+				spi-max-frequency = < 0x989680 >; /* in dist_embedded/stm32/common.dtsi:32 */
+				int-gpios = < &gpioa 0xa 0x1 >;   /* in dist_embedded/stm32/common.dtsi:33 */
+				osc-freq = < 0xf42400 >;          /* in dist_embedded/stm32/common.dtsi:34 */
+				bitrate = < 0x7a120 >;            /* in dist_embedded/stm32/common.dtsi:35 */
+				status = "okay";                  /* in dist_embedded/stm32/common.dtsi:36 */
 			};
 
-			/* node '/soc/spi@40013000/mcp2515@1' defined in 18-649-lab3/stm32/common.dtsi:34 */
+			/* node '/soc/spi@40013000/mcp2515@1' defined in dist_embedded/stm32/common.dtsi:39 */
 			can_b: mcp2515@1 {
-				compatible = "microchip,mcp2515"; /* in 18-649-lab3/stm32/common.dtsi:35 */
-				reg = < 0x1 >;                    /* in 18-649-lab3/stm32/common.dtsi:36 */
-				spi-max-frequency = < 0x989680 >; /* in 18-649-lab3/stm32/common.dtsi:37 */
-				int-gpios = < &gpiob 0x5 0x1 >;   /* in 18-649-lab3/stm32/common.dtsi:38 */
-				osc-freq = < 0xf42400 >;          /* in 18-649-lab3/stm32/common.dtsi:39 */
-				bitrate = < 0x7a120 >;            /* in 18-649-lab3/stm32/common.dtsi:40 */
-				status = "okay";                  /* in 18-649-lab3/stm32/common.dtsi:41 */
+				compatible = "microchip,mcp2515"; /* in dist_embedded/stm32/common.dtsi:40 */
+				reg = < 0x1 >;                    /* in dist_embedded/stm32/common.dtsi:41 */
+				spi-max-frequency = < 0x989680 >; /* in dist_embedded/stm32/common.dtsi:42 */
+				int-gpios = < &gpiob 0x5 0x1 >;   /* in dist_embedded/stm32/common.dtsi:43 */
+				osc-freq = < 0xf42400 >;          /* in dist_embedded/stm32/common.dtsi:44 */
+				bitrate = < 0x7a120 >;            /* in dist_embedded/stm32/common.dtsi:45 */
+				status = "okay";                  /* in dist_embedded/stm32/common.dtsi:46 */
 			};
 		};
 
@@ -623,16 +623,16 @@
 			resets = < &rctl 0x400 >;       /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:410 */
 			interrupts = < 0x1c 0x0 >;      /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:411 */
 			interrupt-names = "global";     /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:412 */
-			status = "okay";                /* in 18-649-lab3/stm32/common.dtsi:55 */
-			st,prescaler = < 0x53 >;        /* in 18-649-lab3/stm32/common.dtsi:56 */
+			status = "okay";                /* in dist_embedded/stm32/common.dtsi:61 */
+			st,prescaler = < 0x53 >;        /* in dist_embedded/stm32/common.dtsi:62 */
 
 			/* node '/soc/timers@40000000/pwm' defined in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:416 */
 			pwm2: pwm {
 				compatible = "st,stm32-pwm";   /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:417 */
 				#pwm-cells = < 0x3 >;          /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:419 */
-				pinctrl-0 = < &tim2_ch2_pb3 >; /* in 18-649-lab3/stm32/common.dtsi:60 */
-				pinctrl-names = "default";     /* in 18-649-lab3/stm32/common.dtsi:61 */
-				status = "okay";               /* in 18-649-lab3/stm32/common.dtsi:62 */
+				pinctrl-0 = < &tim2_ch2_pb3 >; /* in dist_embedded/stm32/common.dtsi:66 */
+				pinctrl-names = "default";     /* in dist_embedded/stm32/common.dtsi:67 */
+				status = "okay";               /* in dist_embedded/stm32/common.dtsi:68 */
 				phandle = < 0x26 >;            /* in external/zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:40 */
 			};
 
@@ -866,7 +866,7 @@
 			pinctrl-names = "default";                                   /* in external/zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:186 */
 			st,adc-clock-source = "SYNC";                                /* in external/zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:187 */
 			st,adc-prescaler = < 0x2 >;                                  /* in external/zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:188 */
-			status = "disabled";                                         /* in 18-649-lab3/stm32/common.dtsi:48 */
+			status = "disabled";                                         /* in dist_embedded/stm32/common.dtsi:54 */
 			phandle = < 0x1f >;                                          /* in external/zephyr/dts/arm/st/f4/stm32f4.dtsi:677 */
 		};
 
@@ -1285,31 +1285,35 @@
 		};
 	};
 
-	/* node '/blinkers' defined in 18-649-lab3/stm32/common.dtsi:3 */
+	/* node '/blinkers' defined in dist_embedded/stm32/common.dtsi:3 */
 	blinkers {
-		compatible = "gpio-leds"; /* in 18-649-lab3/stm32/common.dtsi:4 */
+		compatible = "gpio-leds"; /* in dist_embedded/stm32/common.dtsi:4 */
 
-		/* node '/blinkers/blink_left' defined in 18-649-lab3/stm32/common.dtsi:5 */
+		/* node '/blinkers/blink_left' defined in dist_embedded/stm32/common.dtsi:5 */
 		blink_left: blink_left {
-			gpios = < &gpiob 0x4 0x0 >; /* in 18-649-lab3/stm32/common.dtsi:5 */
+			gpios = < &gpiob 0x4 0x0 >; /* in dist_embedded/stm32/common.dtsi:5 */
 		};
 
-		/* node '/blinkers/blink_right' defined in 18-649-lab3/stm32/common.dtsi:6 */
+		/* node '/blinkers/blink_right' defined in dist_embedded/stm32/common.dtsi:6 */
 		blink_right: blink_right {
-			gpios = < &gpiob 0xa 0x0 >; /* in 18-649-lab3/stm32/common.dtsi:6 */
+			gpios = < &gpiob 0xa 0x0 >; /* in dist_embedded/stm32/common.dtsi:6 */
 		};
 	};
 
-	/* node '/zephyr,user' defined in 18-649-lab3/stm32/common.dtsi:9 */
+	/* node '/zephyr,user' defined in dist_embedded/stm32/common.dtsi:9 */
 	zephyr,user {
-		can-rx-a-gpios = < &gpioa 0x0 0x0 >; /* in 18-649-lab3/stm32/common.dtsi:10 */
-		can-rx-b-gpios = < &gpioa 0x1 0x0 >; /* in 18-649-lab3/stm32/common.dtsi:11 */
-		can-tx-a-gpios = < &gpioa 0x4 0x0 >; /* in 18-649-lab3/stm32/common.dtsi:12 */
-		can-tx-b-gpios = < &gpiob 0x0 0x0 >; /* in 18-649-lab3/stm32/common.dtsi:13 */
-		deg-a-gpios = < &gpioa 0x8 0x0 >;    /* in 18-649-lab3/stm32/common.dtsi:14 */
-		deg-b-gpios = < &gpioa 0x9 0x0 >;    /* in 18-649-lab3/stm32/common.dtsi:15 */
-		pwms = < &pwm2 0x2 0x1312d00 0x0 >;  /* in 18-649-lab3/stm32/front.overlay:6 */
-		relay-tx-gpios = < &gpioc 0x1 0x0 >; /* in 18-649-lab3/stm32/front.overlay:7 */
-		err-gpios = < &gpioc 0x0 0x0 >;      /* in 18-649-lab3/stm32/front.overlay:8 */
+		can-rx-a-gpios = < &gpioa 0x0 0x0 >; /* in dist_embedded/stm32/common.dtsi:10 */
+		can-rx-b-gpios = < &gpioa 0x1 0x0 >; /* in dist_embedded/stm32/common.dtsi:11 */
+		can-tx-a-gpios = < &gpioa 0x4 0x0 >; /* in dist_embedded/stm32/common.dtsi:12 */
+		can-tx-b-gpios = < &gpiob 0x0 0x0 >; /* in dist_embedded/stm32/common.dtsi:13 */
+		deg-a-gpios = < &gpioa 0x8 0x0 >;    /* in dist_embedded/stm32/common.dtsi:14 */
+		deg-b-gpios = < &gpioa 0x9 0x0 >;    /* in dist_embedded/stm32/common.dtsi:15 */
+		pps-gpios = < &gpiob 0x8 0x0 >;      /* in dist_embedded/stm32/common.dtsi:17 */
+		ref-rx-gpios = < &gpiob 0x9 0x0 >;   /* in dist_embedded/stm32/common.dtsi:18 */
+		leader-gpios = < &gpioc 0x8 0x0 >;   /* in dist_embedded/stm32/common.dtsi:19 */
+		sync-gpios = < &gpioc 0x6 0x0 >;     /* in dist_embedded/stm32/common.dtsi:20 */
+		pwms = < &pwm2 0x2 0x1312d00 0x0 >;  /* in dist_embedded/stm32/front.overlay:6 */
+		relay-tx-gpios = < &gpioc 0x1 0x0 >; /* in dist_embedded/stm32/front.overlay:7 */
+		err-gpios = < &gpioc 0x0 0x0 >;      /* in dist_embedded/stm32/front.overlay:8 */
 	};
 };

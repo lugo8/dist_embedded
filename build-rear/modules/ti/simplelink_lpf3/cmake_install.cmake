@@ -39,17 +39,17 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/ti/simplelink_lpf3/source/ti/devices/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/ti/simplelink_lpf3/source/ti/devices/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/ti/simplelink_lpf3/source/ti/boards/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/ti/simplelink_lpf3/source/ti/boards/cmake_install.cmake")
 endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
 if(CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/ti/simplelink_lpf3/install_local_manifest.txt"
+  file(WRITE "/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/ti/simplelink_lpf3/install_local_manifest.txt"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()

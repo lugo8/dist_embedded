@@ -39,357 +39,357 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/arch/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/arch/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/lib/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/lib/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/soc/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/soc/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/boards/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/boards/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/subsys/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/subsys/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/drivers/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/drivers/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/acpica/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/acpica/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/cmsis/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/cmsis/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/cmsis-dsp/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/cmsis-dsp/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/cmsis-nn/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/cmsis-nn/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/cmsis_6/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/cmsis_6/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/dhara/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/dhara/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/fatfs/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/fatfs/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/adi/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/adi/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_afbr/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_afbr/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_ambiq/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_ambiq/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/atmel/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/atmel/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_bouffalolab/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_bouffalolab/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_espressif/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_espressif/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_ethos_u/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_ethos_u/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_gigadevice/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_gigadevice/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_infineon/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_infineon/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_intel/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_intel/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/microchip/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/microchip/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_nordic/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_nordic/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/nuvoton/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/nuvoton/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_nxp/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_nxp/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/openisa/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/openisa/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/quicklogic/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/quicklogic/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_realtek/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_realtek/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_renesas/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_renesas/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_rpi_pico/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_rpi_pico/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_sifli/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_sifli/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_silabs/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_silabs/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_st/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_st/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_stm32/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_stm32/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_tdk/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_tdk/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_telink/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_telink/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/ti/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/ti/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_wch/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_wch/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hal_wurthelektronik/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hal_wurthelektronik/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/xtensa/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/xtensa/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/hostap/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/hostap/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/liblc3/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/liblc3/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/libmctp/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/libmctp/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/libmetal/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/libmetal/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/libsbc/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/libsbc/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/littlefs/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/littlefs/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/lora-basics-modem/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/lora-basics-modem/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/loramac-node/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/loramac-node/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/lvgl/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/lvgl/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/mbedtls/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/mbedtls/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/mcuboot/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/mcuboot/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/mipi-sys-t/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/mipi-sys-t/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/nanopb/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/nanopb/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/nrf_wifi/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/nrf_wifi/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/open-amp/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/open-amp/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/openthread/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/openthread/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/percepio/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/percepio/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/picolibc/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/picolibc/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/segger/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/segger/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/trusted-firmware-a/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/trusted-firmware-a/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/trusted-firmware-m/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/trusted-firmware-m/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/uoscore-uedhoc/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/uoscore-uedhoc/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/zcbor/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/zcbor/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/modules/nrf_hw_models/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/modules/nrf_hw_models/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/kernel/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/kernel/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/cmake/flash/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/cmake/flash/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/cmake/usage/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/cmake/usage/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/cmake/reports/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/cmake/reports/cmake_install.cmake")
 endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
 if(CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/install_local_manifest.txt"
+  file(WRITE "/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/install_local_manifest.txt"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()

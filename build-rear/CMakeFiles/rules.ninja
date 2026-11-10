@@ -6,7 +6,7 @@
 # It is included in the main 'build.ninja'.
 
 # =============================================================================
-# Project: lab3_zone
+# Project: lab5_zone
 # Configurations: 
 # =============================================================================
 # =============================================================================
@@ -576,7 +576,7 @@ rule C_STATIC_LIBRARY_LINKER__kernel_
 # Rule for re-running cmake.
 
 rule RERUN_CMAKE
-  command = /usr/local/bin/cmake --regenerate-during-build -S/Users/leesiena/Desktop/18-649/18-649-lab3/stm32 -B/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear
+  command = /usr/local/bin/cmake --regenerate-during-build -S/Users/leesiena/Desktop/18-649/dist_embedded/stm32 -B/Users/leesiena/Desktop/18-649/dist_embedded/build-rear
   description = Re-running CMake...
   generator = 1
 

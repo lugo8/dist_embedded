@@ -39,97 +39,97 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/drivers/disk/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/drivers/disk/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/drivers/firmware/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/drivers/firmware/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/drivers/interrupt_controller/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/drivers/interrupt_controller/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/drivers/misc/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/drivers/misc/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/drivers/pcie/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/drivers/pcie/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/drivers/usb/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/drivers/usb/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/drivers/usb_c/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/drivers/usb_c/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/drivers/can/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/drivers/can/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/drivers/clock_control/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/drivers/clock_control/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/drivers/console/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/drivers/console/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/drivers/gpio/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/drivers/gpio/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/drivers/pinctrl/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/drivers/pinctrl/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/drivers/pwm/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/drivers/pwm/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/drivers/reset/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/drivers/reset/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/drivers/serial/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/drivers/serial/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/drivers/spi/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/drivers/spi/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/drivers/timer/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/drivers/timer/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/drivers/watchdog/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/drivers/watchdog/cmake_install.cmake")
 endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
 if(CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "/Users/leesiena/Desktop/18-649/18-649-lab3/build-rear/zephyr/drivers/install_local_manifest.txt"
+  file(WRITE "/Users/leesiena/Desktop/18-649/dist_embedded/build-rear/zephyr/drivers/install_local_manifest.txt"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()

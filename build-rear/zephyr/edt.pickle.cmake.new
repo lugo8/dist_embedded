@@ -721,7 +721,7 @@ set_target_properties(${DEVICETREE_TARGET} PROPERTIES "DT_PROP|/soc/i2c@40005400
 set_target_properties(${DEVICETREE_TARGET} PROPERTIES "DT_PROP|/soc/i2c@40005400|clock-frequency" "400000")
 set_target_properties(${DEVICETREE_TARGET} PROPERTIES "DT_PROP|/soc/i2c@40005400|sq-size" "4")
 set_target_properties(${DEVICETREE_TARGET} PROPERTIES "DT_PROP|/soc/i2c@40005400|cq-size" "4")
-set_target_properties(${DEVICETREE_TARGET} PROPERTIES "DT_PROP|/soc/i2c@40005400|status" "okay")
+set_target_properties(${DEVICETREE_TARGET} PROPERTIES "DT_PROP|/soc/i2c@40005400|status" "disabled")
 set_target_properties(${DEVICETREE_TARGET} PROPERTIES "DT_PROP|/soc/i2c@40005400|compatible" "st,stm32-i2c-v1")
 set_target_properties(${DEVICETREE_TARGET} PROPERTIES "DT_PROP|/soc/i2c@40005400|interrupt-names" "event;error")
 set_target_properties(${DEVICETREE_TARGET} PROPERTIES "DT_PROP|/soc/i2c@40005400|zephyr,deferred-init" "False")

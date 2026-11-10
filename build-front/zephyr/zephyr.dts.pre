@@ -2163,9 +2163,9 @@ arduino_spi: &spi1 {};
  status = "okay";
 };
 # 0 "<command-line>" 2
-# 1 "/Users/leesiena/Desktop/18-649/18-649-lab3/stm32/front.overlay" 1
+# 1 "/Users/leesiena/Desktop/18-649/dist_embedded/stm32/front.overlay" 1
 
-# 1 "/Users/leesiena/Desktop/18-649/18-649-lab3/stm32/common.dtsi" 1
+# 1 "/Users/leesiena/Desktop/18-649/dist_embedded/stm32/common.dtsi" 1
 
 / {
  blinkers {
@@ -2181,6 +2181,11 @@ arduino_spi: &spi1 {};
   can-tx-b-gpios = <&gpiob 0 (0 << 0)>;
   deg-a-gpios = <&gpioa 8 (0 << 0)>;
   deg-b-gpios = <&gpioa 9 (0 << 0)>;
+
+  pps-gpios = <&gpiob 8 (0 << 0)>;
+  ref-rx-gpios = <&gpiob 9 (0 << 0)>;
+  leader-gpios = <&gpioc 8 (0 << 0)>;
+  sync-gpios = <&gpioc 6 (0 << 0)>;
  };
 };
 
@@ -2213,6 +2218,7 @@ arduino_spi: &spi1 {};
 
 &usart1 { status = "disabled"; };
 &i2c3 { status = "disabled"; };
+&i2c1 { status = "disabled"; };
 &adc1 { status = "disabled"; };
 
 
@@ -2229,7 +2235,7 @@ arduino_spi: &spi1 {};
  pinctrl-names = "default";
  status = "okay";
 };
-# 3 "/Users/leesiena/Desktop/18-649/18-649-lab3/stm32/front.overlay" 2
+# 3 "/Users/leesiena/Desktop/18-649/dist_embedded/stm32/front.overlay" 2
 
 / {
  zephyr,user {

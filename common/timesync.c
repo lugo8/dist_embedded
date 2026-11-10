@@ -135,6 +135,11 @@ void ts_become_master(struct timesync *ts, int64_t local)
 	if (ts->ever) {
 		reanchor(ts, local);
 		ts->slew_ppb = 0; /* keep the drift: we keep running on the old master's time */
+		/* ...unless it can't be a crystal: then it was measured on bad samples, and a new
+		 * master must not hand a wrong rate to the whole vehicle */
+		if (ts->ppb > TS_MASTER_MAX_PPB || ts->ppb < -TS_MASTER_MAX_PPB) {
+			ts->ppb = 0;
+		}
 	}
 	ts->rx[0].valid = ts->rx[1].valid = false;
 	ts->cycle_valid = false;

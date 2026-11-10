@@ -9,7 +9,6 @@
  * The log file is what lets the Pi rejoin after a power cycle with the log it had: the
  * leader then only sends what it missed, and those entries come up marked replayed.
  */
-#include <errno.h>
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -70,11 +69,22 @@ int64_t pi_global_gettime(void)
 	return g;
 }
 
+/*
+ * Sleep until `us` on pi_local_us()'s clock. clock_nanosleep() refuses CLOCK_MONOTONIC_RAW
+ * (it returns ENOTSUP at once), which left every thread here spinning at SCHED_FIFO, so
+ * sleep relative on CLOCK_MONOTONIC for whatever is left and check again.
+ */
 static void sleep_until_us(int64_t us)
 {
-	struct timespec t = { us / 1000000, (us % 1000000) * 1000 };
+	for (;;) {
+		int64_t d = us - pi_local_us();
 
-	while (clock_nanosleep(CLOCK_MONOTONIC_RAW, TIMER_ABSTIME, &t, NULL) == EINTR) {
+		if (d <= 0) {
+			return;
+		}
+		struct timespec t = { d / 1000000, (d % 1000000) * 1000 };
+
+		nanosleep(&t, NULL); /* EINTR or an early wake: the loop works out what's left */
 	}
 }
 
@@ -94,7 +104,6 @@ static void io_log(void *ctx, const char *fmt, ...)
 	va_list ap;
 
 	(void)ctx;
-	printf("[raft] ");
 	va_start(ap, fmt);
 	vprintf(fmt, ap);
 	va_end(ap);

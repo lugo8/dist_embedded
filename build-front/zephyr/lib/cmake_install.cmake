@@ -39,52 +39,52 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-front/zephyr/lib/libc/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-front/zephyr/lib/libc/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-front/zephyr/lib/posix/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-front/zephyr/lib/posix/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-front/zephyr/lib/hash/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-front/zephyr/lib/hash/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-front/zephyr/lib/heap/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-front/zephyr/lib/heap/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-front/zephyr/lib/mem_blocks/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-front/zephyr/lib/mem_blocks/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-front/zephyr/lib/midi2/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-front/zephyr/lib/midi2/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-front/zephyr/lib/os/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-front/zephyr/lib/os/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-front/zephyr/lib/utils/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-front/zephyr/lib/utils/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/leesiena/Desktop/18-649/18-649-lab3/build-front/zephyr/lib/uuid/cmake_install.cmake")
+  include("/Users/leesiena/Desktop/18-649/dist_embedded/build-front/zephyr/lib/uuid/cmake_install.cmake")
 endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
 if(CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "/Users/leesiena/Desktop/18-649/18-649-lab3/build-front/zephyr/lib/install_local_manifest.txt"
+  file(WRITE "/Users/leesiena/Desktop/18-649/dist_embedded/build-front/zephyr/lib/install_local_manifest.txt"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()
