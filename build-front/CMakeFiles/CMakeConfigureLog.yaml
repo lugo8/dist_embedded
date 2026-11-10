@@ -4266,3 +4266,58 @@ events:
         - "~/.dotnet/tools"
       CMAKE_INSTALL_PREFIX: "/usr/local"
 ...
+
+---
+events:
+  -
+    kind: "find-v1"
+    backtrace:
+      - "/Users/leesiena/Desktop/18-649/external/zephyr/cmake/compiler/gcc/target.cmake:8 (find_program)"
+      - "/Users/leesiena/Desktop/18-649/external/zephyr/cmake/modules/FindTargetTools.cmake:103 (include)"
+      - "/Users/leesiena/Desktop/18-649/external/zephyr/cmake/modules/kernel.cmake:25 (find_package)"
+      - "/Users/leesiena/Desktop/18-649/external/zephyr/cmake/modules/zephyr_default.cmake:138 (include)"
+      - "/Users/leesiena/Desktop/18-649/external/zephyr/share/zephyr-package/cmake/ZephyrConfig.cmake:66 (include)"
+      - "/Users/leesiena/Desktop/18-649/external/zephyr/share/zephyr-package/cmake/ZephyrConfig.cmake:97 (include_boilerplate)"
+      - "CMakeLists.txt:11 (find_package)"
+    mode: "program"
+    variable: "CMAKE_C_COMPILER"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "FIRST"
+      SearchAppBundle: "FIRST"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "/Users/leesiena/.zephyr_ide/toolchains/zephyr-sdk-1.0.1/gnu/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc"
+    candidate_directories:
+      - "/Users/leesiena/.zephyr_ide/toolchains/zephyr-sdk-1.0.1/gnu/"
+    found: "/Users/leesiena/.zephyr_ide/toolchains/zephyr-sdk-1.0.1/gnu/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc"
+    search_context:
+      CMAKE_PREFIX_PATH:
+        - "/Users/leesiena/.zephyr_ide/toolchains/zephyr-sdk-1.0.1/hosttools/usr"
+      ENV{PATH}:
+        - "/Users/leesiena/Desktop/18-649/.venv/bin"
+        - "/Users/leesiena/.local/bin"
+        - "/opt/homebrew/bin"
+        - "/opt/homebrew/sbin"
+        - "/usr/local/bin"
+        - "/System/Cryptexes/App/usr/bin"
+        - "/usr/bin"
+        - "/bin"
+        - "/usr/sbin"
+        - "/sbin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin"
+        - "/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin"
+        - "/pkg/env/global/bin"
+        - "/opt/X11/bin"
+        - "/Library/Apple/usr/bin"
+        - "/opt/ImageMagick/bin"
+        - "/Applications/VMware Fusion.app/Contents/Public"
+        - "/usr/local/share/dotnet"
+        - "~/.dotnet/tools"
+      CMAKE_INSTALL_PREFIX: "/usr/local"
+...
