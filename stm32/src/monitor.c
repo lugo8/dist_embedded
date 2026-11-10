@@ -17,7 +17,7 @@ static const struct device *const wdt = DEVICE_DT_GET(DT_NODELABEL(iwdg));
 /* shared with the dispatch path and the actuator tasks; times in ms, 0 = never */
 static K_MUTEX_DEFINE(lock);
 static int64_t hb_ms[4][2]; /* [zone][bus] last heartbeat, direct or relayed */
-static int64_t direct_ms[4][2]; /* [zone][bus] last heartbeat heard straight from that zone */
+static int64_t direct_ms[4][2]; /* [zone][bus] last frame of any kind heard straight from it */
 static int64_t any_ms[2];   /* [bus] last frame from any other zone */
 static int64_t ctrl_ms;     /* last valid CTRL */
 static int64_t bad_cmd_ms;  /* last out-of-range CTRL */
@@ -67,9 +67,11 @@ void monitor_rx(int bus, int zone, bool hb, bool relayed)
 	any_ms[bus] = now;
 	if (hb) {
 		hb_ms[zone][bus] = now;
-		if (!relayed) {
-			direct_ms[zone][bus] = now;
-		}
+	}
+	/* relay presence (Lab 5): any direct frame, so a Pi leading with the proxy stopped
+	 * (REF but no heartbeat) is not mistaken for missing and relayed for nothing */
+	if (!relayed) {
+		direct_ms[zone][bus] = now;
 	}
 	k_mutex_unlock(&lock);
 }
@@ -88,6 +90,7 @@ void monitor_ctrl(bool valid)
 	k_mutex_unlock(&lock);
 
 	if (!valid) {
+		raft_agent_event(APP_BAD_CTRL);
 		enter_error(MY_ZONE, FAULT_BAD_CTRL);
 	}
 }
@@ -107,6 +110,19 @@ bool monitor_self_test(void)
 	bool t = self_test;
 	k_mutex_unlock(&lock);
 	return t;
+}
+
+bool monitor_sending_hb(void)
+{
+	return !monitor_self_test();
+}
+
+uint8_t monitor_deg_bits(void)
+{
+	k_mutex_lock(&lock, K_FOREVER);
+	uint8_t d = (deg[0] ? HEALTH_A_DEG : 0) | (deg[1] ? HEALTH_B_DEG : 0);
+	k_mutex_unlock(&lock);
+	return d;
 }
 
 bool monitor_hb_on_bus(int zone, int bus)
@@ -136,7 +152,8 @@ static void hb_tx_task(void *p1, void *p2, void *p3)
 		k_mutex_lock(&lock, K_FOREVER);
 		bool quiet = self_test;
 		uint8_t d[MSG_DLC] = { 0, in_error ? STATE_ERROR : STATE_NORMAL,
-				       (deg[0] ? HEALTH_A_DEG : 0) | (deg[1] ? HEALTH_B_DEG : 0) };
+				       (deg[0] ? HEALTH_A_DEG : 0) | (deg[1] ? HEALTH_B_DEG : 0),
+				       raft_agent_hb_sync_bits() };
 		k_mutex_unlock(&lock);
 
 		if (!quiet) {
@@ -227,6 +244,7 @@ static void btn_task(void *p1, void *p2, void *p3)
 			last_press = 0; /* HB_MON decides when we leave error */
 		} else {
 			last_press = now;
+			raft_agent_event(APP_TEST_BTN);
 			enter_error(MY_ZONE, FAULT_TEST_BTN);
 		}
 	}

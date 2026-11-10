@@ -27,6 +27,7 @@
 
 #include "../common/can_msg.h"
 #include "dijoystate.h"
+#include "raft_node.h"
 
 #define UDP_PORT     8000 /* wheel state in */
 #define FORCE_PORT   8001 /* force byte back to whoever sent the wheel state */
@@ -37,15 +38,13 @@
 #define HB_TIMEOUT_MS    65  /* 3 missed heartbeats + margin (R4.5) */
 #define DEG_TIMEOUT_MS   45  /* DEG on within 60 ms of a pull (R4.7): 45 + one 10 ms check */
 #define MON_PERIOD_MS    10
-#define BLINK_TICK_MS    10
-#define BLINK_HALF_MS    500 /* 1 Hz (R2.4) */
-#define HAZARD_HALF_MS   250 /* 2 Hz hazard pattern (S4, via R3) */
-#define BLINK_MIN_GAP_MS 20  /* BLINK minimum interarrival (catalog) */
 #define TURN_CANCEL_DEG  150 /* turn signal cancels after the wheel passes this and comes back */
 #define DOUBLE_PRESS_MS  500
 #define FORCE_LIMIT      20  /* force is a dummy counter: keep the wheel from jerking */
 #define TX_PROBE_MS      100 /* send rate on a bus we hear nobody on */
 #define UDP_TIMEOUT_MS   100 /* no wheel update this long: cockpit treats itself as failed (lab 1 reqs) */
+#define RELAY_DETECT_MS  30  /* relay a zone's frames once it is missing this long on a bus */
+#define RAFT_LOG_FILE    "raft_cockpit.log" /* term, vote and entries; next to where it runs */
 
 /* test points (BCM numbers); must not be the MCP2515 INT pins in config.txt */
 #define PIN_UDP_RX 22 /* header pin 15 */
@@ -93,7 +92,8 @@ static int gpio_h = -1;
 
 static void gpio_init(void)
 {
-	const int pins[] = { PIN_UDP_RX, PIN_CMD_TX, PIN_TX_A, PIN_TX_B, PIN_DEG_A, PIN_DEG_B };
+	const int pins[] = { PIN_UDP_RX, PIN_CMD_TX, PIN_TX_A, PIN_TX_B, PIN_DEG_A, PIN_DEG_B,
+			     PIN_PPS, PIN_LEADER, PIN_SYNC, PIN_REF_TX };
 
 	/* the header GPIOs are on the chip labelled pinctrl-*: pinctrl-rp1 on a Pi 5
 	 * (gpiochip0, or gpiochip4 on older kernels), pinctrl-bcm2711 on a Pi 4 */
@@ -140,12 +140,17 @@ static int can_open(const char *ifname)
 		perror(ifname);
 		exit(1);
 	}
-	/* only what the cockpit reads; the EFF flag in the mask keeps extended frames out */
-	const canid_t mask = CAN_SFF_MASK | CAN_EFF_FLAG;
-	struct can_filter f[] = {
-		{ ID_HB_N2, mask }, { ID_HB_N3, mask }, { ID_FAULT, mask }, { ID_FORCE, mask },
-	};
+	/* the catalog's filters (all of Raft, the heartbeats, FORCE); the EFF flag in the mask
+	 * keeps extended frames out */
+#define FILTER(i, m) { (i), (m) | CAN_EFF_FLAG },
+	struct can_filter f[] = { CAN_RX_FILTERS(FILTER) };
+#undef FILTER
 	setsockopt(fd, SOL_CAN_RAW, CAN_RAW_FILTER, f, sizeof(f));
+	/* Lab 5: our own frames come back (MSG_CONFIRM) once the controller has sent them,
+	 * which is the TX-done time for the REF follow-up; and kernel receive timestamps */
+	int one = 1;
+	setsockopt(fd, SOL_CAN_RAW, CAN_RAW_RECV_OWN_MSGS, &one, sizeof(one));
+	setsockopt(fd, SOL_SOCKET, SO_TIMESTAMPNS, &one, sizeof(one));
 	/* a dead bus fails its write right away instead of blocking the other bus */
 	fcntl(fd, F_SETFL, O_NONBLOCK);
 	return fd;
@@ -182,16 +187,45 @@ static void send_both(uint16_t id, uint8_t *seq, uint8_t d[MSG_DLC], int mark)
 	pthread_mutex_unlock(&tx_lock);
 }
 
+/* Raft frames: seq already set by raft_node */
+static void send_raw_both(uint16_t id, uint8_t d[MSG_DLC])
+{
+	struct can_frame f = { .can_id = id, .can_dlc = MSG_DLC };
+	int64_t now = now_ms();
+
+	memcpy(f.data, d, MSG_DLC);
+	pthread_mutex_lock(&tx_lock);
+	for (int bus = 0; bus < 2; bus++) {
+		if (!skip_bus(bus, now) && write(can_fd[bus], &f, sizeof(f)) < 0) {
+			/* dead or full bus: the other bus still carries it */
+		}
+	}
+	pthread_mutex_unlock(&tx_lock);
+}
+
+/* one copy on one bus: REF (per-bus follow-up time) and relayed copies */
+static void send_bus(int bus, uint16_t id, const uint8_t d[MSG_DLC])
+{
+	struct can_frame f = { .can_id = id, .can_dlc = MSG_DLC };
+
+	memcpy(f.data, d, MSG_DLC);
+	pthread_mutex_lock(&tx_lock);
+	if (!skip_bus(bus, now_ms()) && write(can_fd[bus], &f, sizeof(f)) < 0) {
+	}
+	pthread_mutex_unlock(&tx_lock);
+}
+
 /* shared between the threads, guarded by lock; times in ms, 0 = never */
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static int64_t hb_ms[4][2];  /* [zone][bus] last heartbeat */
 static int64_t any_ms[2];    /* [bus] last frame from any other zone */
+static int64_t direct_ms[4][2]; /* [zone][bus] last frame heard straight from it (relay) */
 static int in_error = 1;     /* power up in error (R3) */
 static int self_test;        /* wheel test button has failed this zone */
 static int udp_since_error;  /* a valid wheel update arrived since the error began */
 static int64_t udp_ms;       /* last wheel update, 0 = never */
 static int deg[2];
-static int bl_state = BLINK_HAZARD, bl_phase = 1, bl_changed = 1, bl_passed;
+static int bl_state = BLINK_HAZARD, bl_passed; /* goes out in CTRL b7 (Lab 5) */
 static struct sockaddr_in proxy_addr; /* where force goes, learned from the wheel packets */
 static int have_proxy;
 static int zone_err[4];      /* [zone] error state from its heartbeat */
@@ -229,8 +263,6 @@ static void set_blink(int s)
 		return;
 	}
 	bl_state = s;
-	bl_phase = s != BLINK_OFF; /* a new pattern starts with the lamps on */
-	bl_changed = 1;
 	bl_passed = 0;
 }
 
@@ -284,7 +316,8 @@ static void *hb_tx_thread(void *arg)
 		/* stream lost: stop the heartbeat so N2/N3 see the cockpit as failed */
 		int quiet = self_test || !(udp_ms > 0 && now - udp_ms < UDP_TIMEOUT_MS);
 		uint8_t d[MSG_DLC] = { 0, in_error ? STATE_ERROR : STATE_NORMAL,
-				       (deg[0] ? HEALTH_A_DEG : 0) | (deg[1] ? HEALTH_B_DEG : 0) };
+				       (deg[0] ? HEALTH_A_DEG : 0) | (deg[1] ? HEALTH_B_DEG : 0),
+				       raft_node_sync_bits() };
 		pthread_mutex_unlock(&lock);
 
 		if (!quiet) {
@@ -350,46 +383,29 @@ static void *mon_thread(void *arg)
 	return NULL;
 }
 
-/* BLINK_TX: on a state change, then every half period while blinking */
-static void *blink_thread(void *arg)
+/* hooks for raft_node */
+static uint8_t hook_deg_bits(void)
 {
-	uint8_t seq = 0;
-	int64_t last_tx = 0, next_flip = 0, next = now_ms();
-
-	(void)arg;
-	for (;;) {
-		next += BLINK_TICK_MS;
-		sleep_until_ms(next);
-		int64_t now = now_ms();
-		int send = 0;
-
-		pthread_mutex_lock(&lock);
-		int half = bl_state == BLINK_HAZARD ? HAZARD_HALF_MS : BLINK_HALF_MS;
-
-		if (bl_changed && now - last_tx >= BLINK_MIN_GAP_MS) {
-			bl_changed = 0;
-			send = 1;
-			next_flip = now + half;
-		} else if (!bl_changed && bl_state != BLINK_OFF && now >= next_flip) {
-			bl_phase ^= 1;
-			send = 1;
-			next_flip = now + half;
-		}
-		uint8_t d[MSG_DLC] = { 0, bl_state, bl_phase };
-		pthread_mutex_unlock(&lock);
-
-		if (send) {
-			send_both(ID_BLINK, &seq, d, -1);
-			last_tx = now;
-		}
-	}
-	return NULL;
+	pthread_mutex_lock(&lock);
+	uint8_t d = (deg[0] ? HEALTH_A_DEG : 0) | (deg[1] ? HEALTH_B_DEG : 0);
+	pthread_mutex_unlock(&lock);
+	return d;
 }
 
-/* FORCE_RX + heartbeat reception, both buses */
+static bool hook_sending_hb(void)
+{
+	int64_t now = now_ms();
+
+	pthread_mutex_lock(&lock);
+	bool on = !self_test && udp_ms > 0 && now - udp_ms < UDP_TIMEOUT_MS;
+	pthread_mutex_unlock(&lock);
+	return on;
+}
+
+/* FORCE_RX, heartbeat reception, Raft frames and RELAY, both buses */
 static struct dedup dd[MSG_COUNT];
 
-static void rx_frame(int bus, const struct can_frame *f)
+static void rx_frame(int bus, const struct can_frame *f, int64_t rx_us)
 {
 	if ((f->can_id & (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_ERR_FLAG)) || f->can_dlc != MSG_DLC) {
 		return;
@@ -402,17 +418,38 @@ static void rx_frame(int bus, const struct can_frame *f)
 	}
 
 	int64_t now = now_ms();
+	bool relayed = f->data[0] & FLAG_RELAYED;
 	pthread_mutex_lock(&lock);
 	any_ms[bus] = now; /* both copies count: they show the bus works */
 	if (is_hb(id)) {
 		hb_ms[zone][bus] = now;
 		zone_err[zone] = f->data[1] == STATE_ERROR;
 	}
+	if (!relayed) {
+		direct_ms[zone][bus] = now;
+	}
+	int other = 1 - bus;
+	bool relay = !relayed && raft_node_relay() == ZONE_N1 && !deg[other] &&
+		     !(direct_ms[zone][other] > 0 && now - direct_ms[zone][other] < RELAY_DETECT_MS);
 	struct sockaddr_in to = proxy_addr;
 	int have = have_proxy;
 	pthread_mutex_unlock(&lock);
 
-	if (dedup_is_copy(&dd[idx], SEQ(f->data), bus)) {
+	bool copy = dedup_is_copy(&dd[idx], SEQ(f->data), bus);
+
+	/* Lab 5: the Pi relays too when the network graph makes it the relay (route.h):
+	 * forward-on-detect, the copy marked FLAG_RELAYED so nobody forwards it again */
+	if (!copy && relay) {
+		uint8_t d[MSG_DLC];
+
+		memcpy(d, f->data, MSG_DLC);
+		d[0] |= FLAG_RELAYED;
+		send_bus(other, (uint16_t)id, d);
+	}
+	if (is_raft(id) || is_hb(id)) {
+		raft_node_rx(bus, (uint16_t)id, f->data, relayed, !copy, rx_us);
+	}
+	if (copy) {
 		return;
 	}
 	if (id == ID_FORCE && have) {
@@ -433,10 +470,35 @@ static void *rx_thread(void *arg)
 		poll(pfd, 2, -1);
 		for (int bus = 0; bus < 2; bus++) {
 			struct can_frame f;
+			char ctl[CMSG_SPACE(sizeof(struct timespec))];
+			struct iovec iov = { &f, sizeof(f) };
+			struct msghdr m = { .msg_iov = &iov, .msg_iovlen = 1, .msg_control = ctl,
+					    .msg_controllen = sizeof(ctl) };
 
 			/* read everything waiting; a failed read also clears a socket error */
-			while (read(can_fd[bus], &f, sizeof(f)) == (ssize_t)sizeof(f)) {
-				rx_frame(bus, &f);
+			while (recvmsg(can_fd[bus], &m, 0) == (ssize_t)sizeof(f)) {
+				int64_t rx_us = pi_local_us();
+				struct cmsghdr *c = CMSG_FIRSTHDR(&m);
+
+				/* the kernel's receive time is CLOCK_REALTIME: move it onto our clock */
+				if (c && c->cmsg_level == SOL_SOCKET && c->cmsg_type == SCM_TIMESTAMPNS) {
+					struct timespec k, nowr;
+
+					memcpy(&k, CMSG_DATA(c), sizeof(k));
+					clock_gettime(CLOCK_REALTIME, &nowr);
+					rx_us -= (nowr.tv_sec - k.tv_sec) * 1000000LL +
+						 (nowr.tv_nsec - k.tv_nsec) / 1000;
+				}
+				if (m.msg_flags & MSG_CONFIRM) {
+					/* our own frame, now on the wire: only REF's time matters */
+					if ((f.can_id & CAN_SFF_MASK) == ID_REF(ZONE_N1)) {
+						raft_node_ref_echo(bus, f.data, rx_us);
+					}
+				} else {
+					rx_frame(bus, &f, rx_us);
+				}
+				m.msg_controllen = sizeof(ctl);
+				m.msg_flags = 0;
 			}
 		}
 		/* a downed interface keeps poll() returning at once; at SCHED_FIFO that spin
@@ -500,11 +562,18 @@ int main(void)
 		return 1;
 	}
 
+	struct raft_node_hooks hooks = { .send_both = send_raw_both, .send_bus = send_bus,
+					 .gpio = gpio_put, .deg_bits = hook_deg_bits,
+					 .sending_hb = hook_sending_hb };
+	const char *log_file = getenv("RAFT_LOG");
+
+	raft_node_init(&hooks, log_file ? log_file : RAFT_LOG_FILE);
+
 	pthread_t t;
 	pthread_create(&t, NULL, rx_thread, NULL);
 	pthread_create(&t, NULL, hb_tx_thread, NULL);
 	pthread_create(&t, NULL, mon_thread, NULL);
-	pthread_create(&t, NULL, blink_thread, NULL);
+	raft_node_start();
 
 	/* UDP_RX -> CTRL_TX: one CTRL per wheel update (R4.4) */
 	uint8_t ctrl_seq = 0;
@@ -538,6 +607,9 @@ int main(void)
 		if (bad && !prev_bad) {
 			c.throttle = 200; /* one out-of-range CTRL */
 		}
+		pthread_mutex_lock(&lock);
+		c.blink = (uint8_t)bl_state; /* Lab 5: the turn state rides in CTRL b7 */
+		pthread_mutex_unlock(&lock);
 
 		uint8_t d[MSG_DLC] = { 0 };
 		ctrl_encode(&c, d);
@@ -547,7 +619,7 @@ int main(void)
 
 		/* bookkeeping after the frame is out, so it stays off the brake path */
 		int64_t now = now_ms();
-		int fault = 0;
+		int fault = 0, pressed = 0;
 
 		pthread_mutex_lock(&lock);
 		proxy_addr = from;
@@ -569,12 +641,16 @@ int main(void)
 				self_test = 1;
 				last_press = now;
 				fault = enter_error();
+				pressed = 1;
 			}
 		}
 		pthread_mutex_unlock(&lock);
 
 		if (fault) {
 			send_fault(ZONE_N1, FAULT_TEST_BTN);
+		}
+		if (pressed) {
+			raft_node_event(APP_TEST_BTN); /* outside `lock`: raft_lock is taken first elsewhere */
 		}
 
 		/* once a second: is the wheel stream arriving, and how bursty is the wifi */

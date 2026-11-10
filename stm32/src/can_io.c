@@ -18,6 +18,7 @@ static const struct gpio_dt_spec tx_pin[2] = {
 	GPIO_DT_SPEC_GET(USER, can_tx_a_gpios),
 	GPIO_DT_SPEC_GET(USER, can_tx_b_gpios),
 };
+static const struct gpio_dt_spec ref_rx_pin = GPIO_DT_SPEC_GET(USER, ref_rx_gpios);
 
 /*
  * Zephyr's MCP2515 driver uses one TX buffer (MCP2515_TX_CNT = 1), so a frame queued
@@ -28,15 +29,16 @@ static const struct gpio_dt_spec tx_pin[2] = {
 
 struct rx_item {
 	struct can_frame f;
-	uint8_t bus; /* where it came from, or for the relay queue, where it goes */
+	int64_t rx_us; /* when the frame finished arriving: the time sync pairs these */
+	uint8_t bus;   /* where it came from, or for the relay queue, where it goes */
 };
 
 K_MSGQ_DEFINE(rx_q, sizeof(struct rx_item), 16, 4);
 
-/* runs in the MCP2515 driver thread: copy the frame and hand it off, nothing else */
+/* runs in the MCP2515 driver thread: stamp, copy, hand off, nothing else */
 static void rx_cb(const struct device *dev, struct can_frame *f, void *user)
 {
-	struct rx_item it = { .f = *f, .bus = (uint8_t)(uintptr_t)user };
+	struct rx_item it = { .rx_us = local_us(), .f = *f, .bus = (uint8_t)(uintptr_t)user };
 
 	ARG_UNUSED(dev);
 	k_msgq_put(&rx_q, &it, K_NO_WAIT);
@@ -65,33 +67,55 @@ void send_both(uint16_t id, atomic_t *seq, uint8_t d[MSG_DLC])
 	}
 }
 
+/* REF: each bus gets its own payload (its own follow-up time) under one seq */
+static void (*ref_done_cb)(int bus);
+
+static void ref_tx_done(const struct device *dev, int err, void *user)
+{
+	ARG_UNUSED(dev);
+	if (!err && ref_done_cb) {
+		ref_done_cb((int)(uintptr_t)user);
+	}
+}
+
+void send_ref(uint16_t id, atomic_t *seq, uint8_t d[2][MSG_DLC], void (*done)(int bus))
+{
+	uint8_t s = atomic_inc(seq) & 0x0F;
+
+	ref_done_cb = done;
+	for (int bus = 0; bus < 2; bus++) {
+		struct can_frame f = { .id = id, .dlc = MSG_DLC };
+
+		d[bus][0] = (d[bus][0] & 0xF0) | s;
+		memcpy(f.data, d[bus], MSG_DLC);
+		gpio_pin_set_dt(&tx_pin[bus], 1);
+		can_send(can_dev[bus], &f, TX_WAIT, ref_tx_done, (void *)(uintptr_t)bus);
+		gpio_pin_set_dt(&tx_pin[bus], 0);
+	}
+}
+
 /* RELAY_TX is a test point on N2 only; N3 uses that pin for PWM_SET */
 static const struct gpio_dt_spec relay_pin = GPIO_DT_SPEC_GET_OR(USER, relay_tx_gpios, {0});
 
 K_MSGQ_DEFINE(relay_q, sizeof(struct rx_item), 16, 4);
 
+atomic_t relay_zone; /* written by the raft agent from route_relay() */
+
 /*
- * Forward-on-detect, on both STM32s: once a zone's own heartbeat is missing on one bus
- * while it is still talking on the other, everything it sends is copied across. N2
- * relays in checkoff cases 1-2, N3 in cases 3-4. A forwarded copy carries FLAG_RELAYED
- * and is never forwarded again, so two relays can't bounce a frame between them, and a
- * receiver that also got the direct copy drops the relayed one as a duplicate.
+ * Forward-on-detect, as in Lab 3: once a zone is missing on one bus while it is still
+ * talking on the other, everything it sends is copied across. Lab 5 changes who does it:
+ * not "N2, else N3, never the Pi" but the one relay route_relay() picks from the Raft
+ * network graph and the heartbeats' DEG bits, the same choice on every node (route.h).
+ * A forwarded copy carries FLAG_RELAYED and is never forwarded again, and a receiver
+ * that also got the direct copy drops the relayed one as a duplicate.
  */
 static void relay_offer(const struct rx_item *it, int zone)
 {
 	int to = 1 - it->bus;
 
-#ifndef ZONE_FRONT
-	/*
-	 * N2 is the main relay; N3 steps in only when N2 is missing from a bus (cases 3-4).
-	 * If both relayed the same frame onto a bus where only they are left (N1 pulled),
-	 * nobody would be receiving to ACK it: both retransmit in lockstep forever and
-	 * the bus jams.
-	 */
-	if (monitor_hb_on_bus(ZONE_N2, 0) && monitor_hb_on_bus(ZONE_N2, 1)) {
+	if (atomic_get(&relay_zone) != MY_ZONE) {
 		return;
 	}
-#endif
 	if (monitor_hb_on_bus(zone, to) || monitor_bus_degraded(to)) {
 		return;
 	}
@@ -127,37 +151,42 @@ static void handle(const struct rx_item *it)
 	int zone = msg_sender(f->id, f->data);
 
 	if (f->dlc != MSG_DLC || (f->flags & (CAN_FRAME_IDE | CAN_FRAME_RTR)) || idx < 0 ||
-	    zone < ZONE_N1 || zone > ZONE_N3) {
+	    zone < ZONE_N1 || zone > ZONE_N3 || zone == MY_ZONE) {
 		return;
 	}
 	bool relayed = f->data[0] & FLAG_RELAYED;
 
 	/* both copies count for liveness, only the first one goes on to the tasks */
 	monitor_rx(it->bus, zone, is_hb(f->id), relayed);
-	if (dedup_is_copy(&dd[idx], SEQ(f->data), it->bus)) {
-		return;
-	}
-	if (!relayed) {
+	bool copy = dedup_is_copy(&dd[idx], SEQ(f->data), it->bus);
+
+	if (!copy && !relayed) {
 		relay_offer(it, zone);
 	}
-
-	switch (f->id) {
-	case ID_CTRL: {
+	/* brake path first: nothing below may delay CTRL */
+	if (!copy && f->id == ID_CTRL) {
 		struct ctrl c;
 		bool ok = ctrl_decode(f->data, &c);
 
 		monitor_ctrl(ok);
 		if (ok) {
 			actuator_ctrl(&c);
+			blinker_ctrl(c.blink);
 		}
-		break;
 	}
-	case ID_BLINK:
-		blinker_msg(f->data[1], f->data[2]);
-		break;
-	default:
-		break; /* heartbeats were noted above; FAULT and FORCE need nothing here */
+	if (!copy && raft_base(f->id) == ID_REF_BASE) {
+		gpio_pin_toggle_dt(&ref_rx_pin);
 	}
+	/* Raft, routing and time sync: every copy, through the agent's queue */
+	if (is_raft(f->id) || is_hb(f->id)) {
+		struct raft_rx r = { .bus = it->bus, .relayed = relayed, .first = !copy,
+				     .rx_us = it->rx_us };
+
+		r.f.id = (uint16_t)f->id;
+		memcpy(r.f.data, f->data, MSG_DLC);
+		raft_agent_rx(&r);
+	}
+	/* FAULT and FORCE need nothing here; BLINK (Lab 3) is no longer sent */
 }
 
 /* CAN_RX dispatch: one path for both buses */
@@ -178,9 +207,9 @@ K_THREAD_DEFINE(dispatch_tid, 1024, dispatch_task, NULL, NULL, NULL, PRIO_DISPAT
 
 int can_io_init(void)
 {
-	static const uint16_t ids[] = {
-		ID_CTRL, ID_FAULT, ID_HB_N1, ID_HB_N2, ID_HB_N3, ID_BLINK, ID_FORCE,
-	};
+#define FILTER(i, m) { .id = (i), .mask = (m) },
+	static const struct can_filter filters[] = { CAN_RX_FILTERS(FILTER) };
+#undef FILTER
 
 	for (int bus = 0; bus < 2; bus++) {
 		if (!device_is_ready(can_dev[bus]) ||
@@ -189,17 +218,20 @@ int can_io_init(void)
 			return -ENODEV;
 		}
 	}
+	if (gpio_pin_configure_dt(&ref_rx_pin, GPIO_OUTPUT_INACTIVE)) {
+		return -ENODEV;
+	}
 	if (relay_pin.port && gpio_pin_configure_dt(&relay_pin, GPIO_OUTPUT_INACTIVE)) {
 		return -ENODEV;
 	}
+	atomic_set(&relay_zone, ZONE_NONE);
 	k_thread_start(relay_tid);
 	k_thread_start(dispatch_tid);
 
 	for (int bus = 0; bus < 2; bus++) {
-		for (size_t i = 0; i < ARRAY_SIZE(ids); i++) {
-			struct can_filter flt = { .id = ids[i], .mask = CAN_STD_ID_MASK };
-
-			if (can_add_rx_filter(can_dev[bus], rx_cb, (void *)(uintptr_t)bus, &flt) < 0) {
+		for (size_t i = 0; i < ARRAY_SIZE(filters); i++) {
+			if (can_add_rx_filter(can_dev[bus], rx_cb, (void *)(uintptr_t)bus,
+					      &filters[i]) < 0) {
 				return -EIO;
 			}
 		}

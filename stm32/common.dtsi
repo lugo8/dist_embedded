@@ -13,6 +13,11 @@
 		can-tx-b-gpios = <&gpiob 0 GPIO_ACTIVE_HIGH>;  /* CAN_TX_B, A3 PB0 */
 		deg-a-gpios = <&gpioa 8 GPIO_ACTIVE_HIGH>;     /* DEG_A, D7 PA8 */
 		deg-b-gpios = <&gpioa 9 GPIO_ACTIVE_HIGH>;     /* DEG_B, D8 PA9 */
+		/* Lab 5 */
+		pps-gpios = <&gpiob 8 GPIO_ACTIVE_HIGH>;       /* PPS, D15 PB8 */
+		ref-rx-gpios = <&gpiob 9 GPIO_ACTIVE_HIGH>;    /* REF_RX, D14 PB9 */
+		leader-gpios = <&gpioc 8 GPIO_ACTIVE_HIGH>;    /* LEADER LED, CN10-2 PC8 */
+		sync-gpios = <&gpioc 6 GPIO_ACTIVE_HIGH>;      /* SYNC LED, CN10-4 PC6 */
 	};
 };
 
@@ -45,6 +50,7 @@
 /* board defaults that sit on our pins */
 &usart1 { status = "disabled"; }; /* PB6/PB7: PB6 is CAN A CS */
 &i2c3 { status = "disabled"; };   /* PA8/PC9: PA8 is DEG_A */
+&i2c1 { status = "disabled"; };   /* PB8/PB9: PPS and REF_RX */
 &adc1 { status = "disabled"; };   /* PA0: CAN_RX_A */
 
 /* independent watchdog (R4.5) */
