@@ -147,11 +147,22 @@ bool monitor_hb_both(int zone)
 	return on;
 }
 
+/*
+ * Is `zone` present on `bus`, for forward-on-detect? Direct frames only: another relay's
+ * copies must not switch this relay off. Judged by its heartbeat, as in Lab 3: timing it
+ * from its last frame of any kind (the Pi's CTRL comes between its heartbeats) started
+ * relaying up to 19 ms later, and the first relayed heartbeat could arrive 60+ ms after the
+ * last one, at the 65 ms heartbeat timeout. Only a zone that sends no heartbeat at all
+ * (the Pi leading with the proxy stopped) is judged by any frame.
+ */
 bool monitor_hb_on_bus(int zone, int bus)
 {
 	k_mutex_lock(&lock, K_FOREVER);
-	/* direct only: another relay's copies must not switch this relay off */
-	bool on = recent(direct_ms[zone][bus], k_uptime_get(), RELAY_DETECT_MS);
+	int64_t now = k_uptime_get();
+	bool beating = recent(hb_ms[zone][0], now, HB_TIMEOUT_MS) ||
+		       recent(hb_ms[zone][1], now, HB_TIMEOUT_MS);
+	bool on = beating ? recent(hb_direct_ms[zone][bus], now, RELAY_DETECT_MS)
+			  : recent(direct_ms[zone][bus], now, RELAY_DETECT_MS);
 	k_mutex_unlock(&lock);
 	return on;
 }

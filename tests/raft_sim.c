@@ -136,7 +136,14 @@ static void maybe_relay(int r, const struct msg *m)
 			     nd->hb_direct_ms[x][1];
 	}
 	if (m->relayed || route_relay(&nd->r.net, hb_both, (uint8_t)r, nd->hb) != r ||
-	    (deg & (to ? HEALTH_B_DEG : HEALTH_A_DEG)) || now - nd->direct_ms[m->from][to] < 30) {
+	    (deg & (to ? HEALTH_B_DEG : HEALTH_A_DEG))) {
+		return;
+	}
+	/* present on `to`: by heartbeat (Lab 3), by any frame only if it sends none */
+	bool beating = nd->hb_any_ms[m->from] && now - nd->hb_any_ms[m->from] < 65;
+	uint32_t seen = beating ? nd->hb_direct_ms[m->from][to] : nd->direct_ms[m->from][to];
+
+	if (seen && now - seen < 30) {
 		return;
 	}
 	nd->relayed_tx++;
@@ -306,6 +313,13 @@ static void step(void)
 			continue;
 		}
 		raft_tick(&nd->r, now);
+		/* the Pi's CTRL follows the wheel packets, out of step with its heartbeat: a
+		 * relay that times a node's absence from its last frame of any kind starts late */
+		if (n == ZONE_N1 && nd->hb && now % RAFT_CONF_HEARTBEAT_MS == 19) {
+			uint8_t d[8] = { 0 };
+
+			transmit((uint8_t)n, ID_CTRL, d);
+		}
 		if (now % RAFT_CONF_HEARTBEAT_MS == (uint32_t)n) {
 			uint8_t d[8] = { 0 };
 			uint32_t term;
@@ -400,7 +414,9 @@ static void check_hb_gaps(const char *what)
 	for (int n = 1; n <= 3; n++) {
 		for (int x = 1; x <= 3; x++) {
 			if (x != n && nodes[n].on && nodes[x].on && nodes[x].hb) {
-				CHECK(nodes[n].hb_gap_max[x] < 65, "%s: N%d missed N%d's heartbeat for %u ms",
+				/* 65 ms = failed (R4.5); keep 10 ms clear of it for what the simulation
+				 * leaves out: relay queueing, SPI, the 10 ms monitor check */
+				CHECK(nodes[n].hb_gap_max[x] < 55, "%s: N%d missed N%d's heartbeat for %u ms",
 				      what, n, x, nodes[n].hb_gap_max[x]);
 			}
 		}

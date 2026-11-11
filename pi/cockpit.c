@@ -456,8 +456,12 @@ static void rx_frame(int bus, const struct can_frame *f, int64_t rx_us)
 		}
 	}
 	int other = 1 - bus;
+	/* present on the other bus: by heartbeat, as in Lab 3 (see monitor_hb_on_bus on the
+	 * STM32s); by any frame only for a zone that sends no heartbeat at all */
+	bool beating = recent(hb_ms[zone][0], now) || recent(hb_ms[zone][1], now);
+	int64_t seen = beating ? hb_direct_ms[zone][other] : direct_ms[zone][other];
 	bool relay = !relayed && raft_node_relay() == ZONE_N1 && !deg[other] &&
-		     !(direct_ms[zone][other] > 0 && now - direct_ms[zone][other] < RELAY_DETECT_MS);
+		     !(seen > 0 && now - seen < RELAY_DETECT_MS);
 	struct sockaddr_in to = proxy_addr;
 	int have = have_proxy;
 	pthread_mutex_unlock(&lock);
