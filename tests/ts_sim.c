@@ -8,7 +8,9 @@
 #include "timesync.h"
 
 static const double ppm[4] = { 0, +40, -35, +15 };  /* crystal error per node */
-static const int64_t off[4] = { 0, 0, 5123456, -777777 }; /* boot times differ */
+/* boot times: the master (N1, the Pi) has been up 40 min, the STM32s were just reset: the
+ * case where a 32-bit master time made followers guess the wrong wrap */
+static const int64_t off[4] = { 0, 2400000000LL, 5123456, 777777 };
 static struct timesync ts[4];
 static int failures;
 
@@ -57,7 +59,7 @@ int main(void)
 				}
 				bool rel = relayed && n == 3;
 
-				ts_on_ref(&ts[n], rel ? 1 : 0, cycle, true, rel, (uint32_t)prev_eof_global,
+				ts_on_ref(&ts[n], rel ? 1 : 0, cycle, true, rel, (uint64_t)prev_eof_global,
 					  rx_time(n, eof, rel));
 			}
 			prev_eof_global = global_of(master, eof);

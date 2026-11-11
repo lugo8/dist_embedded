@@ -346,7 +346,7 @@ static void *ref_thread(void *arg)
 			int64_t t = ts_global(&TS, fu ? ref_done_us[bus] : pi_local_us());
 
 			pthread_mutex_unlock(&ts_lock);
-			struct raft_ref m = { .term = term, .cycle = ref_cycle, .time_us = (uint32_t)t,
+			struct raft_ref m = { .term = term, .cycle = ref_cycle, .time_us = (uint64_t)t,
 					      .mode = mode, .followup = fu };
 			uint8_t d[MSG_DLC];
 
@@ -365,7 +365,7 @@ static void *pps_thread(void *arg)
 	(void)arg;
 	for (;;) {
 		int64_t g = pi_global_gettime();
-		int64_t edge = (g / 1000000 + 1) * 1000000;
+		int64_t edge = (ts_floor_div(g, 1000000) + 1) * 1000000;
 
 		sleep_until_us(pi_local_us() + (edge - g) - PPS_EARLY_US);
 		int64_t l, limit = pi_local_us() + 2 * PPS_EARLY_US + 2000;

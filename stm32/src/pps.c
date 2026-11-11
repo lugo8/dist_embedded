@@ -15,7 +15,7 @@ static const struct gpio_dt_spec pps = GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), pp
 static void pps_task(void *p1, void *p2, void *p3)
 {
 	while (1) {
-		int64_t edge = (global_gettime() / 1000000 + 1) * 1000000;
+		int64_t edge = (ts_floor_div(global_gettime(), 1000000) + 1) * 1000000;
 		int64_t wake = global_to_local(edge) - PPS_EARLY_US;
 
 		k_sleep(K_TIMEOUT_ABS_US(wake));

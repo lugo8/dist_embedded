@@ -28,6 +28,7 @@
 #include "../common/can_msg.h"
 #include "dijoystate.h"
 #include "raft_node.h"
+#include "../common/timesync.h"
 
 #define UDP_PORT     8000 /* wheel state in */
 #define FORCE_PORT   8001 /* force byte back to whoever sent the wheel state */
@@ -269,7 +270,7 @@ static void set_blink(int s)
 	if (s == BLINK_LEFT || s == BLINK_RIGHT) {
 		/* start on the first 50 ms grid point at least 10 ms ahead: every STM32 has the
 		 * frame by then, relayed or not, and it is still within R2.4's 100 ms */
-		int64_t start = (pi_global_gettime() + 10000) / TURN_GRID_US + 1;
+		int64_t start = ts_floor_div(pi_global_gettime() + 10000, TURN_GRID_US) + 1;
 
 		bl_slot = (uint8_t)(start & 0x3F);
 	}

@@ -58,7 +58,7 @@ python3 mac_proxy.py --remote 192.168.50.2 --interval-ms 20 ...   # Mac, and set
 |---|---|---|---|---|
 | 0x010 | CTRL | N1 | every UDP update, 20 ms | b1-2 steer int16 LE (deg), b3 throttle %, b4 brake %, b5 buttons, b6 CRC-8 of b1..b5 and b7, b7 bits 0-1 turn state (off/L/R/hazard; Lab 5, replaces BLINK), bits 2-7 turn start slot (50 ms grid point of global time, mod 64) |
 | 0x020 | FAULT | any | on error entry | b1 failing zone, b2 reason (1 HB lost, 2 bad CTRL, 3 test button), b3 sender |
-| 0x030/031/032 | REF_Nx | Raft leader | 20 ms (`heartbeat_ms`) | b1 term, b2 cycle, b3-6 master time µs u32 LE, b7 mode (bit0 failure mode). Flag 0x20 = time is end of previous REF on this bus |
+| 0x030/031/032 | REF_Nx | Raft leader | 20 ms (`heartbeat_ms`) | b1 term, b2 cycle, b3-6 master time µs bits 0-31 LE, b7 bit0 failure mode + bits1-7 master time bits 32-38 (39 bits, 6.4 days). Flag 0x20 = time is end of previous REF on this bus |
 | 0x040/041/042 | VOTE_REQ_Nx | candidate | on election | b1 term, b2-3 last log index, b4 last log term |
 | 0x048/049/04A | VOTE_RSP_Nx | any | on VOTE_REQ | b1 term, b2 candidate, b3 granted |
 | 0x050/051/052 | APPEND_Nx | Raft leader | per entry (≤ 1 / 5 ms), empty every 100 ms | b1 term, b2-3 index, b4 prev term, b5 entry term, b6 event (0 = empty), b7 commit lag (index − commit, ≤ 255) |

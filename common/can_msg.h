@@ -122,7 +122,8 @@ enum { BUS_A = 0, BUS_B = 1 };
  *   FORCE  b1 force int8 (dummy counter this lab)
  *
  * Raft payloads, Lab 5. Every b1 is the sender's term (see "terms on the wire" below).
- *   REF         b1 term | b2 cycle | b3-6 master time us u32 LE | b7 mode bits
+ *   REF         b1 term | b2 cycle | b3-6 master time us, bits 0-31 LE
+ *               | b7 bit 0 failure mode, bits 1-7 = master time bits 32-38
  *   VOTE_REQ    b1 term | b2-3 last log index u16 LE | b4 last log term
  *   VOTE_RSP    b1 term | b2 candidate | b3 granted (0/1)
  *   APPEND      b1 term | b2-3 index u16 LE | b4 prev term | b5 entry term | b6 event
@@ -280,8 +281,9 @@ static inline bool ev_valid(uint8_t e)
 
 enum { ROLE_FOLLOWER, ROLE_CANDIDATE, ROLE_LEADER };
 
-/* REF b7 mode bits */
+/* REF b7 bit 0; bits 1-7 carry master time bits 32-38 */
 #define REF_MODE_FAILURE 0x01 /* leader has applied COCKPIT_ERROR: failure mode, 4 Hz hazards */
+#define REF_TIME_BITS    39   /* master time on the wire: 2^39 us = 6.4 days of uptime */
 
 /* HB b3 sync bits */
 #define SYNC_LOCKED 0x01 /* clock follows a REF heard in the last missed_heartbeats periods */
@@ -337,8 +339,11 @@ static inline bool zone_ok(uint8_t z)
  * REF, leader -> all, every heartbeat_ms (20 ms). It is both the Raft heartbeat that resets
  * follower election timers and the time reference (Part 6).
  * cycle goes up by one per REF so a follower can pair consecutive REFs (and tell a missed
- * one). time_us is the master's global time in microseconds, wrapping every 71 min; the
- * receiver extends it to 64 bits against its own global clock.
+ * one). time_us is the master's global time in microseconds, 39 bits (b3-6 plus b7 bits
+ * 1-7), so 6.4 days before it wraps. A first version sent 32 bits (71 min) and had the
+ * receiver guess the rest from its own clock: a follower that had just been reset (clock
+ * near 0) against a Pi up for over 36 min guessed wrong, landed 2^32 us behind, in negative
+ * time, and the blinkers and PPS went wrong.
  * FLAG_REF_FOLLOWUP clear: time_us was read when the frame was queued.
  * FLAG_REF_FOLLOWUP set:   time_us is when the previous REF (cycle - 1) finished on this
  *   bus (TX-done callback). Pair it with the receive time of that REF on the same bus: every
@@ -348,8 +353,8 @@ static inline bool zone_ok(uint8_t z)
 struct raft_ref {
 	uint32_t term;
 	uint8_t cycle;
-	uint32_t time_us;
-	uint8_t mode;
+	uint64_t time_us; /* REF_TIME_BITS on the wire */
+	uint8_t mode;     /* REF_MODE_FAILURE */
 	bool followup;
 };
 
@@ -358,18 +363,18 @@ static inline void ref_encode(const struct raft_ref *m, uint8_t d[MSG_DLC])
 	d[0] = m->followup ? FLAG_REF_FOLLOWUP : 0;
 	d[1] = (uint8_t)m->term;
 	d[2] = m->cycle;
-	put32(&d[3], m->time_us);
-	d[7] = m->mode;
+	put32(&d[3], (uint32_t)m->time_us);
+	d[7] = (uint8_t)((m->mode & REF_MODE_FAILURE) | (((m->time_us >> 32) & 0x7F) << 1));
 }
 
 static inline bool ref_decode(const uint8_t d[MSG_DLC], uint32_t my_term, struct raft_ref *m)
 {
 	m->term = term_unwire(d[1], my_term);
 	m->cycle = d[2];
-	m->time_us = get32(&d[3]);
-	m->mode = d[7];
+	m->time_us = get32(&d[3]) | ((uint64_t)(d[7] >> 1) << 32);
+	m->mode = d[7] & REF_MODE_FAILURE;
 	m->followup = d[0] & FLAG_REF_FOLLOWUP;
-	return !(m->mode & ~REF_MODE_FAILURE);
+	return true;
 }
 
 /* VOTE_REQ, candidate -> all */

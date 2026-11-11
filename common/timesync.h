@@ -70,6 +70,14 @@ struct timesync {
 	uint32_t syncs, steps;
 };
 
+/* a / b rounded towards minus infinity (C's / rounds towards zero, wrong below 0) */
+static inline int64_t ts_floor_div(int64_t a, int64_t b)
+{
+	int64_t q = a / b;
+
+	return (a % b != 0 && ((a < 0) != (b < 0))) ? q - 1 : q;
+}
+
 /* "+460.7" (ppm, one decimal) from ppb, into b[12] */
 static inline const char *ts_ppm(char b[12], int32_t ppb)
 {
@@ -96,14 +104,12 @@ static inline const char *ts_ppm(char b[12], int32_t ppb)
 
 void ts_init(struct timesync *ts);
 int64_t ts_global(const struct timesync *ts, int64_t local_us);
-/* the master's 32-bit REF time extended to 64 bits around our own global time */
-int64_t ts_extend(const struct timesync *ts, int64_t local_us, uint32_t master32);
 /*
  * A REF from the master arrived on `bus` at local time `rx_us` (the copy's own receive
  * time, for each bus copy). Returns true if it moved the model.
  */
 bool ts_on_ref(struct timesync *ts, int bus, uint8_t cycle, bool followup, bool relayed,
-	       uint32_t master32, int64_t rx_us);
+	       uint64_t master_us, int64_t rx_us);
 /* becoming the master: keep the model (no jump), stop slewing towards the old master */
 void ts_become_master(struct timesync *ts, int64_t local_us);
 /* call periodically: drops the lock when no REF arrives */

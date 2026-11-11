@@ -8,7 +8,9 @@ with its cycle counter going up by one, an empty APPEND every 100 ms, and no REQ
   python3 pi/check_bus.py 30         # records 30 s
   python3 pi/check_bus.py log.txt    # checks a saved `candump -L any` log
 
-Relayed copies (byte 0 flag 0x10) are left out of the timing: they are extra copies.
+Relayed copies (byte 0 flag 0x10) are left out of the timing: they are extra copies. The
+"relayed" column counts them: with every jumper in it should be 0; a large count means some
+node is missing from that bus and a relay is copying its frames there.
 """
 import os
 import statistics
@@ -37,9 +39,20 @@ def bus_of(ifname):
         return {"can0": "A", "can1": "B"}.get(ifname, ifname)
 
 
+RELAYED = {}  # (bus, id) -> relayed copies seen (left out of the timing)
+
+
+def relayed(bus, ident):
+    """relayed copies of this ID on this bus; for REF/APPEND, any sender"""
+    if ident in (REF_BASE, APPEND_BASE):
+        return sum(RELAYED.get((bus, ident + i), 0) for i in NODES)
+    return RELAYED.get((bus, ident), 0)
+
+
 def read_log(lines):
     """candump -L lines: (1698.123456) can0 100#0800000000000000"""
     frames = {}  # (bus, id) -> [(t, seq)]
+    RELAYED.clear()
     for line in lines:
         parts = line.split()
         if len(parts) != 3 or "#" not in parts[2]:
@@ -50,6 +63,8 @@ def read_log(lines):
             continue  # extended frames, or no payload
         payload = bytes.fromhex(data)
         if payload[0] & FLAG_RELAYED:
+            key = (bus_of(parts[1]), int(ident, 16))
+            RELAYED[key] = RELAYED.get(key, 0) + 1
             continue
         frames.setdefault((bus_of(parts[1]), int(ident, 16)), []).append((t, payload[0] & 0x0F, payload))
     return frames
@@ -57,13 +72,14 @@ def read_log(lines):
 
 def check(frames):
     ok = True
-    print(f"{'ID':<11}{'bus':<5}{'frames':>7}{'mean ms':>10}{'min':>8}{'max':>8}{'seq skips':>11}  result")
+    print(f"{'ID':<11}{'bus':<5}{'frames':>7}{'mean ms':>10}{'min':>8}{'max':>8}{'seq skips':>11}"
+          f"{'relayed':>9}  result")
     for ident, (name, period, tol) in CATALOG.items():
         for bus in ("A", "B"):
             got = frames.get((bus, ident), [])
             label = f"{ident:03X} {name}"
             if len(got) < 3:
-                print(f"{label:<11}{bus:<5}{len(got):>7}{'':>37}  FAIL: missing")
+                print(f"{label:<11}{bus:<5}{len(got):>7}{'':>37}{relayed(bus, ident):>9}  FAIL: missing")
                 ok = False
                 continue
             gaps = [(b[0] - a[0]) * 1000 for a, b in zip(got, got[1:])]
@@ -72,7 +88,7 @@ def check(frames):
             good = abs(mean - period) <= period * tol and skips == 0
             ok &= good
             print(f"{label:<11}{bus:<5}{len(got):>7}{mean:>10.1f}{min(gaps):>8.1f}{max(gaps):>8.1f}"
-                  f"{skips:>11}  {'pass' if good else 'FAIL'}")
+                  f"{skips:>11}{relayed(bus, ident):>9}  {'pass' if good else 'FAIL'}")
     ok &= check_raft(frames)
     faults = sum(len(frames.get((b, 0x020), [])) for b in ("A", "B"))
     print(f"\nFAULT (020) frames seen: {faults} (expect 0 unless you caused a fault)")
@@ -101,13 +117,14 @@ def check_raft(frames):
             good = len(got) > 2 and abs(mean - 20) <= 2 and cyc_skips == 0
             ok &= good
             print(f"{REF_BASE + i:03X} REF_{NODES[i]} {bus:<5}{len(got):>7}{mean:>10.1f}{min(gaps or [0]):>8.1f}"
-                  f"{max(gaps or [0]):>8.1f}{cyc_skips:>11}  {'pass' if good else 'FAIL'} (cycle skips)")
+                  f"{max(gaps or [0]):>8.1f}{cyc_skips:>11}{RELAYED.get((bus, REF_BASE + i), 0):>9}"
+                  f"  {'pass' if good else 'FAIL'} (cycle skips)")
             for t, _, p in got[:3]:
                 term, cycle = p[1], p[2]
-                master = int.from_bytes(p[3:7], "little")
+                master = int.from_bytes(p[3:7], "little") | (p[7] >> 1) << 32  # 39-bit time
                 fu = " follow-up" if p[0] & 0x20 else ""
                 print(f"           cycle {cycle:3d}  master time {master / 1e6:12.6f} s  term {term}"
-                      f"  mode {p[7]}{fu}")
+                      f"  mode {p[7] & 1}{fu}")
         appends = []
         for i in NODES:
             appends += [(t, p) for t, _, p in frames.get((bus, APPEND_BASE + i), [])]

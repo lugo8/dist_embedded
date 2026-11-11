@@ -291,7 +291,7 @@ static void ref_task(void *p1, void *p2, void *p3)
 			int64_t t = ts_global(&TS, fu ? ref_done_local[bus] : local_us());
 
 			k_spin_unlock(&ts_lock, key);
-			struct raft_ref m = { .term = term, .cycle = ref_cycle, .time_us = (uint32_t)t,
+			struct raft_ref m = { .term = term, .cycle = ref_cycle, .time_us = (uint64_t)t,
 					      .mode = mode, .followup = fu };
 
 			ref_encode(&m, d[bus]);

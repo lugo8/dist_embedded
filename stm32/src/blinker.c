@@ -16,6 +16,7 @@
  *     switches on the same edge.
  */
 #include <zephyr/drivers/gpio.h>
+#include "timesync.h"
 #include "zone.h"
 
 #define GRID_US (BLINK_GRID_MS * 1000LL)
@@ -48,15 +49,22 @@ void blinker_ctrl(uint8_t state, uint8_t slot)
 #endif
 }
 
+/* on in the first half of each period counted from anchor; floor division, so a time
+ * before 0 still lands on the right half */
 static bool phase_on(int64_t g, int64_t anchor, int half_ms)
 {
-	return g >= anchor && ((g - anchor) / (half_ms * 1000LL)) % 2 == 0;
+	return (ts_floor_div(g - anchor, half_ms * 1000LL) & 1) == 0;
+}
+
+static bool turn_on(int64_t g, int64_t anchor)
+{
+	return g >= anchor && phase_on(g, anchor, BLINK_HALF_MS);
 }
 
 /* the grid point nearest `edge` (within +/- 1.6 s) whose slot number is `slot` */
 static int64_t slot_time(int64_t edge, uint8_t slot)
 {
-	int64_t k = edge / TURN_GRID_US;
+	int64_t k = ts_floor_div(edge, TURN_GRID_US);
 	int delta = (int)((slot - k) & 0x3F);
 
 	if (delta > 32) {
@@ -74,7 +82,7 @@ static void blink_task(void *p1, void *p2, void *p3)
 	int64_t shown_anchor = -1;
 
 	while (1) {
-		int64_t edge = (global_gettime() / GRID_US + 1) * GRID_US;
+		int64_t edge = (ts_floor_div(global_gettime(), GRID_US) + 1) * GRID_US;
 
 		k_sleep(K_TIMEOUT_ABS_US(global_to_local(edge) - EARLY_US));
 		int64_t limit = local_us() + 2 * EARLY_US + 2000;
@@ -82,7 +90,7 @@ static void blink_task(void *p1, void *p2, void *p3)
 		while (global_gettime() < edge && local_us() < limit) {
 		}
 
-		if (edge % (HAZARD_HALF_MS * 1000LL) == 0) {
+		if (edge - ts_floor_div(edge, HAZARD_HALF_MS * 1000LL) * HAZARD_HALF_MS * 1000LL == 0) {
 			failure = raft_agent_failure_mode();
 		}
 		uint32_t seen = (uint32_t)atomic_get(&ctrl_ms);
@@ -107,7 +115,7 @@ static void blink_task(void *p1, void *p2, void *p3)
 		} else if (monitor_in_error() || state == BLINK_HAZARD) {
 			l = r = phase_on(edge, 0, HAZARD_HALF_MS);
 		} else if (turn != BLINK_OFF) {
-			bool on = phase_on(edge, turn_anchor, BLINK_HALF_MS);
+			bool on = turn_on(edge, turn_anchor);
 
 			l = on && turn == BLINK_LEFT;
 			r = on && turn == BLINK_RIGHT;

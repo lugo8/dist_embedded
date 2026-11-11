@@ -22,13 +22,6 @@ int64_t ts_global(const struct timesync *ts, int64_t local)
 	return ts->g0 + dt + dt * (ts->ppb + ts->slew_ppb) / 1000000000;
 }
 
-int64_t ts_extend(const struct timesync *ts, int64_t local, uint32_t m32)
-{
-	int64_t g = ts_global(ts, local);
-
-	return g + (int32_t)(m32 - (uint32_t)g);
-}
-
 /* re-anchor the model at `local` without changing its value there */
 static void reanchor(struct timesync *ts, int64_t local)
 {
@@ -99,17 +92,17 @@ static void sample(struct timesync *ts, int64_t l, int64_t f)
 }
 
 bool ts_on_ref(struct timesync *ts, int bus, uint8_t cycle, bool followup, bool relayed,
-	       uint32_t m32, int64_t rx_us)
+	       uint64_t master, int64_t rx_us)
 {
 	struct ts_rx *prev = &ts->rx[bus];
 	bool used = false;
 
 	if (followup) {
-		/* m32 is when REF cycle-1 finished on this bus at the master */
+		/* master is when REF cycle-1 finished on this bus at the master */
 		uint8_t want = (uint8_t)(cycle - 1);
 
 		if (prev->valid && prev->cycle == want && !(ts->cycle_valid && ts->last_cycle == want)) {
-			int64_t l = ts_extend(ts, prev->local_us, m32) + TS_RX_DELAY_US +
+			int64_t l = (int64_t)master + TS_RX_DELAY_US +
 				    (prev->relayed ? TS_RELAY_DELAY_US : 0);
 
 			sample(ts, l, prev->local_us);
@@ -118,7 +111,7 @@ bool ts_on_ref(struct timesync *ts, int bus, uint8_t cycle, bool followup, bool 
 			used = true;
 		}
 	} else if (!(ts->cycle_valid && ts->last_cycle == cycle)) {
-		int64_t l = ts_extend(ts, rx_us, m32) + TS_QUEUE_DELAY_US +
+		int64_t l = (int64_t)master + TS_QUEUE_DELAY_US +
 			    (relayed ? TS_RELAY_DELAY_US : 0);
 
 		sample(ts, l, rx_us);
