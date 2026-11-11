@@ -70,6 +70,30 @@ struct timesync {
 	uint32_t syncs, steps;
 };
 
+/* "+460.7" (ppm, one decimal) from ppb, into b[12] */
+static inline const char *ts_ppm(char b[12], int32_t ppb)
+{
+	uint32_t a = ppb < 0 ? (uint32_t)-(int64_t)ppb : (uint32_t)ppb;
+	char *p = b;
+
+	*p++ = ppb < 0 ? '-' : '+';
+	uint32_t whole = a / 1000, tenth = a % 1000 / 100;
+	char tmp[10];
+	int n = 0;
+
+	do {
+		tmp[n++] = (char)('0' + whole % 10);
+		whole /= 10;
+	} while (whole && n < 9);
+	while (n) {
+		*p++ = tmp[--n];
+	}
+	*p++ = '.';
+	*p++ = (char)('0' + tenth);
+	*p = 0;
+	return b;
+}
+
 void ts_init(struct timesync *ts);
 int64_t ts_global(const struct timesync *ts, int64_t local_us);
 /* the master's 32-bit REF time extended to 64 bits around our own global time */

@@ -23,7 +23,7 @@
 #include "timesync.h"
 
 #define TICK_MS        2
-#define DRIFT_PRINT_MS 1000
+#define STATUS_PRINT_MS 5000
 #define SAVE_PERIOD_MS 100
 #define PPS_EARLY_US   300
 #define PPS_WIDTH_MS   100
@@ -114,14 +114,14 @@ static void io_applied(void *ctx, uint16_t index, uint32_t term, uint8_t e, bool
 	char name[32];
 
 	(void)ctx;
-	printf("[raft] commit %u term %u %s%s\n", index, term, raft_event_name(e, name, sizeof(name)),
+	printf("commit %u term %u %s%s\n", index, term, raft_event_name(e, name, sizeof(name)),
 	       replayed ? "  (replayed)" : "");
 	if (ev_kind(e) != EVK_APP && ev_kind(e) != EVK_COCKPIT) {
 		char net[200];
 		struct net_state s = raft_get_network(&R);
 
 		net_state_print(&s, net, sizeof(net));
-		printf("[raft]   getNetwork: %s\n", net);
+		printf("  getNetwork: %s\n", net);
 	}
 }
 
@@ -298,6 +298,22 @@ static void *agent_thread(void *arg)
 		sync_bits = (sync ? SYNC_LOCKED : 0) | (drift ? SYNC_DRIFT : 0);
 		hk.gpio(PIN_LEADER, lead);
 		hk.gpio(PIN_SYNC, sync);
+
+		/* who leads, on every change (and the first time it is known) */
+		static uint8_t shown_leader = 0xFF, shown_role = 0xFF;
+		static uint32_t shown_term;
+
+		pthread_mutex_lock(&raft_lock);
+		uint8_t leader = R.leader, role = R.role;
+		uint32_t term = R.term;
+		pthread_mutex_unlock(&raft_lock);
+		if (leader != shown_leader || term != shown_term || role != shown_role) {
+			printf("leader: %s (term %u), this node %s\n", raft_node_name(leader), term,
+			       raft_role_name(role));
+			shown_leader = leader;
+			shown_term = term;
+			shown_role = role;
+		}
 	}
 	return NULL;
 }
@@ -365,10 +381,13 @@ static void *pps_thread(void *arg)
 		struct timesync t = TS;
 
 		pthread_mutex_unlock(&ts_lock);
-		printf("PPS %lld.%06lld global=%lld us local=%lld us drift %+d ppb (pair %+d ppb) "
-		       "correction since last REF %+d us (slew %+d ppb)%s\n",
-		       (long long)(edge / 1000000), (long long)(edge % 1000000), (long long)g,
-		       (long long)l, t.ppb, t.pair_ppb, t.last_error_us, t.slew_ppb,
+		char ppm[12];
+
+		/* Part 6.4: global and local time at the edge, drift ratio, last correction */
+		printf("PPS %lld: global %lld.%06lld local %lld.%06lld drift %s ppm corr %+d us%s\n",
+		       (long long)(edge / 1000000), (long long)(g / 1000000), (long long)(g % 1000000),
+		       (long long)(l / 1000000), (long long)(l % 1000000), ts_ppm(ppm, t.ppb),
+		       t.last_error_us,
 		       t.locked ? "" : (R.role == ROLE_LEADER ? " (master)" : " UNSYNCED"));
 		usleep(PPS_WIDTH_MS * 1000);
 		hk.gpio(PIN_PPS, 0);
@@ -376,19 +395,27 @@ static void *pps_thread(void *arg)
 	return NULL;
 }
 
-static void *drift_thread(void *arg)
+/* every 5 s: who leads, and (Part 6.2) the drift correction being applied */
+static void *status_thread(void *arg)
 {
 	(void)arg;
 	for (;;) {
-		usleep(DRIFT_PRINT_MS * 1000);
+		usleep(STATUS_PRINT_MS * 1000);
+		pthread_mutex_lock(&raft_lock);
+		uint8_t leader = R.leader, role = R.role;
+		uint32_t term = R.term;
+		pthread_mutex_unlock(&raft_lock);
 		pthread_mutex_lock(&ts_lock);
 		struct timesync t = TS;
 
 		pthread_mutex_unlock(&ts_lock);
-		printf("drift: %s ratio %+d ppb (last pair %+d ppb), correcting %+d us (slew %+d ppb),"
-		       " %u syncs, %u steps\n",
-		       t.locked ? "locked" : "free", t.ppb, t.pair_ppb, t.last_error_us, t.slew_ppb,
-		       t.syncs, t.steps);
+		char ppm[12];
+
+		printf("status: leader %s, term %u, this node %s | time %s, drift %s ppm, "
+		       "correcting %+d us\n",
+		       raft_node_name(leader), term, raft_role_name(role),
+		       role == ROLE_LEADER ? "master" : t.locked ? "locked" : "FREE",
+		       ts_ppm(ppm, t.ppb), t.last_error_us);
 	}
 	return NULL;
 }
@@ -416,6 +443,6 @@ void raft_node_start(void)
 	pthread_create(&t, NULL, agent_thread, NULL);
 	pthread_create(&t, NULL, ref_thread, NULL);
 	pthread_create(&t, NULL, pps_thread, NULL);
-	pthread_create(&t, NULL, drift_thread, NULL);
+	pthread_create(&t, NULL, status_thread, NULL);
 	pthread_create(&t, NULL, save_thread, NULL);
 }

@@ -1,0 +1,1 @@
+"mcuboot":"/Users/leesiena/Desktop/18-649/external/bootloader/mcuboot":"/Users/leesiena/Desktop/18-649/external/bootloader/mcuboot/boot/zephyr/sysbuild"

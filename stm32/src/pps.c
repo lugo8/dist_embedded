@@ -34,10 +34,12 @@ static void pps_task(void *p1, void *p2, void *p3)
 		struct timesync t;
 
 		raft_agent_ts(&t);
-		agent_printf("PPS %lld.%06lld global=%lld us local=%lld us drift %+d ppb "
-			     "(pair %+d ppb) correction since last REF %+d us (slew %+d ppb)%s",
-			     edge / 1000000, edge % 1000000, g, l, t.ppb, t.pair_ppb, t.last_error_us,
-			     t.slew_ppb,
+		char ppm[12];
+
+		/* Part 6.4: global and local time at the edge, drift ratio, last correction */
+		agent_printf("PPS %lld: global %lld.%06lld local %lld.%06lld drift %s ppm corr %+d us%s",
+			     edge / 1000000, g / 1000000, g % 1000000, l / 1000000, l % 1000000,
+			     ts_ppm(ppm, t.ppb), t.last_error_us,
 			     raft_agent_hb_sync_bits() & SYNC_LOCKED ? (t.locked ? "" : " (master)")
 								     : " UNSYNCED");
 		k_sleep(K_MSEC(PPS_WIDTH_MS));

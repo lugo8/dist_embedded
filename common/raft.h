@@ -182,6 +182,9 @@ uint32_t raft_rand_init(uint32_t seed, uint8_t me);
 uint32_t raft_rand_next(uint32_t *state);
 uint32_t raft_first_jitter(uint32_t seed, uint8_t me);
 
+const char *raft_node_name(uint8_t zone); /* "cockpit", "front", "rear", "none" */
+const char *raft_role_name(uint8_t role); /* "follower", "candidate", "LEADER", "booting" */
+
 /* "NODE_2_DOWN" etc. into buf; returns buf */
 const char *raft_event_name(uint8_t e, char *buf, int len);
 void net_state_print(const struct net_state *s, char *buf, int len);

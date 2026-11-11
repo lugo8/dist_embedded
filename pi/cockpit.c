@@ -607,7 +607,7 @@ int main(void)
 	uint8_t pkt[4 + sizeof(DIJOYSTATE2_t)]; /* 4-byte counter + wheel state */
 	int prev_left = 0, prev_right = 0, prev_test = 0, prev_bad = 0;
 	int64_t last_press = 0;
-	int64_t last_pkt = 0, max_gap = 0, report_at = now_ms() + 1000;
+	int64_t last_pkt = 0, max_gap = 0, report_at = now_ms() + 5000;
 	int pkts = 0;
 
 	for (;;) {
@@ -681,18 +681,18 @@ int main(void)
 			raft_node_event(APP_TEST_BTN); /* outside `lock`: raft_lock is taken first elsewhere */
 		}
 
-		/* once a second: is the wheel stream arriving, and how bursty is the wifi */
+		/* every 5 s: is the wheel stream arriving, and how bursty is the wifi */
 		pkts++;
 		if (last_pkt && now - last_pkt > max_gap) {
 			max_gap = now - last_pkt;
 		}
 		last_pkt = now;
 		if (now >= report_at) {
-			printf("wheel: %d pkt/s, max gap %lld ms, steer %d thr %u brk %u btn 0x%02x\n", pkts,
-			       (long long)max_gap, c.steer, c.throttle, c.brake, c.buttons);
+			printf("wheel: %d pkt/s, max gap %lld ms, steer %d thr %u brk %u btn 0x%02x\n",
+			       pkts / 5, (long long)max_gap, c.steer, c.throttle, c.brake, c.buttons);
 			pkts = 0;
 			max_gap = 0;
-			report_at = now + 1000;
+			report_at = now + 5000;
 		}
 		prev_left = left;
 		prev_right = right;

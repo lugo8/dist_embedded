@@ -120,7 +120,8 @@ static void blink_task(void *p1, void *p2, void *p3)
 		/* say what the lamps are following, on every change: compare N2's and N3's lines */
 		int mode = failure ? 4 : (monitor_in_error() || state == BLINK_HAZARD) ? 3 : turn;
 
-		if (mode != shown || (turn != BLINK_OFF && turn_anchor != shown_anchor)) {
+		if (RAFT_CONF_DEBUG &&
+		    (mode != shown || (turn != BLINK_OFF && turn_anchor != shown_anchor))) {
 			static const char *const name[] = { "off", "LEFT 1 Hz", "RIGHT 1 Hz",
 							    "hazard 2 Hz", "failure 4 Hz" };
 

@@ -34,7 +34,7 @@
 #define BLINK_GRID_MS   50   /* lamps change only on this global-time grid */
 #define BLINK_STALE_MS  1000 /* no CTRL for this long: the cockpit is gone */
 #define RAFT_TICK_MS    2
-#define DRIFT_PRINT_MS  1000 /* Part 6.2 periodic drift printout */
+#define STATUS_PRINT_MS 5000 /* leader + Part 6.2 drift printout */
 #define DEBOUNCE_MS     50   /* presses closer than 50 ms count as one (R2.5) */
 #define DOUBLE_PRESS_MS 500
 #define WDT_TIMEOUT_MS  100

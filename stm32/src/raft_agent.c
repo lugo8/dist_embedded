@@ -134,10 +134,10 @@ static void io_send(void *ctx, uint16_t id, uint8_t d[MSG_DLC])
 static void print_task(void *p1, void *p2, void *p3)
 {
 	struct print_item p;
-	int64_t next_drift = k_uptime_get() + DRIFT_PRINT_MS;
+	int64_t next_status = k_uptime_get() + STATUS_PRINT_MS;
 
 	while (1) {
-		int64_t wait = next_drift - k_uptime_get();
+		int64_t wait = next_status - k_uptime_get();
 
 		if (k_msgq_get(&print_q, &p, K_MSEC(wait > 0 ? wait : 0)) == 0) {
 			if (p.kind == PR_TEXT) {
@@ -147,8 +147,8 @@ static void print_task(void *p1, void *p2, void *p3)
 			char name[24], net[160];
 
 			raft_event_name(p.event, name, sizeof(name));
-			printk("[%lld] raft: commit %u term %u %s%s\n", k_uptime_get(), p.index, p.term,
-			       name, p.replayed ? " (replayed)" : "");
+			printk("[%lld] commit %u term %u %s%s\n", k_uptime_get(), p.index, p.term, name,
+			       p.replayed ? " (replayed)" : "");
 			if (ev_kind(p.event) != EVK_APP && ev_kind(p.event) != EVK_COCKPIT) {
 				k_mutex_lock(&raft_lock, K_FOREVER);
 				struct net_state s = raft_get_network(&R);
@@ -159,17 +159,25 @@ static void print_task(void *p1, void *p2, void *p3)
 			}
 			continue;
 		}
-		/* Part 6.2: the drift correction currently applied */
+		/* every 5 s: who leads, and (Part 6.2) the drift correction being applied */
 		struct timesync t;
 		k_spinlock_key_t key = k_spin_lock(&ts_lock);
 
 		t = TS;
 		k_spin_unlock(&ts_lock, key);
-		printk("[%lld] drift: %s ratio %+d ppb (last pair %+d ppb), correcting %+d us "
-		       "(slew %+d ppb), %u syncs, %u steps\n",
-		       k_uptime_get(), t.locked ? "locked" : "free", t.ppb, t.pair_ppb,
-		       t.last_error_us, t.slew_ppb, t.syncs, t.steps);
-		next_drift += DRIFT_PRINT_MS;
+		k_mutex_lock(&raft_lock, K_FOREVER);
+		uint8_t leader = R.leader, role = R.role;
+		uint32_t term = R.term;
+		k_mutex_unlock(&raft_lock);
+
+		char ppm[12];
+
+		printk("[%lld] status: leader %s, term %u, this node %s | time %s, drift %s ppm, "
+		       "correcting %+d us\n",
+		       k_uptime_get(), raft_node_name(leader), term, raft_role_name(role),
+		       role == ROLE_LEADER ? "master" : t.locked ? "locked" : "FREE",
+		       ts_ppm(ppm, t.ppb), t.last_error_us);
+		next_status += STATUS_PRINT_MS;
 	}
 }
 
@@ -356,6 +364,18 @@ static void agent_tick(uint32_t now)
 	atomic_set(&relay_zone, route_relay(&R.net, hb_both, MY_ZONE, monitor_sending_hb()));
 	gpio_pin_set_dt(&leader_led, lead);
 	gpio_pin_set_dt(&sync_led, sync);
+
+	/* who leads, on every change (and the first time it is known) */
+	static uint8_t shown_leader = 0xFF, shown_role = 0xFF;
+	static uint32_t shown_term;
+
+	if (R.leader != shown_leader || R.term != shown_term || R.role != shown_role) {
+		agent_printf("[%u] leader: %s (term %u), this node %s", now,
+			     raft_node_name(R.leader), R.term, raft_role_name(R.role));
+		shown_leader = R.leader;
+		shown_term = R.term;
+		shown_role = R.role;
+	}
 }
 
 static void agent_task(void *p1, void *p2, void *p3)

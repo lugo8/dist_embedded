@@ -265,7 +265,10 @@ static void btn_task(void *p1, void *p2, void *p3)
 
 		if (clear) {
 			last_press = 0; /* HB_MON decides when we leave error */
+			agent_printf("[%lld] test button: self-test cleared, heartbeat back (the zone "
+				     "leaves error once every other zone and CTRL are back)", now);
 		} else {
+			agent_printf("[%lld] test button: zone failed itself, heartbeat stopped", now);
 			last_press = now;
 			raft_agent_event(APP_TEST_BTN);
 			enter_error(MY_ZONE, FAULT_TEST_BTN);

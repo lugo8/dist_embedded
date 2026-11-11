@@ -274,10 +274,6 @@ static void set_term(struct raft *r, uint32_t t)
 
 static void become_follower(struct raft *r, uint8_t leader)
 {
-	if (r->role != ROLE_FOLLOWER || r->leader != leader) {
-		LOG(r, "raft: term %lu follower, leader %s", (unsigned long)r->term,
-		    node_name[leader]);
-	}
 	r->role = ROLE_FOLLOWER;
 	r->leader = leader;
 	memset(r->pend, 0, sizeof(r->pend));
@@ -292,7 +288,6 @@ static void become_leader(struct raft *r, bool log_noop)
 	}
 	memset(r->pend, 0, sizeof(r->pend));
 	memset(r->last_req_valid, 0, sizeof(r->last_req_valid));
-	LOG(r, "raft: term %lu LEADER %s", (unsigned long)r->term, node_name[r->me]);
 	if (log_noop) {
 		log_append(r, r->term, EV_LEADER(r->me));
 	}
@@ -521,12 +516,6 @@ static void on_append(struct raft *r, uint8_t sender, const struct raft_append *
 			}
 			/* already committed when the leader sent it: we are catching up */
 			set_replay(r, m->index, m->commit >= m->index);
-			if (RAFT_CONF_DEBUG) {
-				char b[24];
-
-				LOG(r, "raft: store %u term %lu %s", m->index,
-				    (unsigned long)m->entry_term, raft_event_name(m->event, b, sizeof(b)));
-			}
 		}
 		match = m->index;
 	}
@@ -671,12 +660,6 @@ static uint8_t leader_submit(struct raft *r, uint8_t e, uint16_t *index)
 		log_append(r, r->term, ev_kind(e) == EVK_NODE_UP ? EV_COCKPIT_OK : EV_COCKPIT_ERROR);
 	}
 	*index = r->last;
-	if (RAFT_CONF_DEBUG) {
-		char b[24];
-
-		LOG(r, "raft: append %u term %lu %s", r->last, (unsigned long)r->term,
-		    raft_event_name(e, b, sizeof(b)));
-	}
 	return CL_OK;
 }
 
@@ -1020,6 +1003,18 @@ void raft_tick(struct raft *r, uint32_t now)
 }
 
 /* ---------------------------------------------------------------- printing */
+
+const char *raft_node_name(uint8_t zone)
+{
+	return zone <= RAFT_NODES ? node_name[zone] : "?";
+}
+
+const char *raft_role_name(uint8_t role)
+{
+	static const char *const name[] = { "follower", "candidate", "LEADER", "booting" };
+
+	return role <= RAFT_BOOT ? name[role] : "?";
+}
 
 const char *raft_event_name(uint8_t e, char *b, int n)
 {
