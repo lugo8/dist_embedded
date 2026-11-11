@@ -241,6 +241,20 @@ void raft_node_ref_echo(int bus, const uint8_t d[MSG_DLC], int64_t tx_us)
 	pthread_mutex_unlock(&ts_lock);
 }
 
+/* hb_tx_thread, after each heartbeat: N2/N3 can hear the cockpit from now on */
+void raft_node_hb_sent(void)
+{
+	static bool done;
+
+	if (done) {
+		return;
+	}
+	pthread_mutex_lock(&raft_lock);
+	raft_set_visible(&R, true, now_ms32());
+	pthread_mutex_unlock(&raft_lock);
+	done = true;
+}
+
 void raft_node_event(uint8_t kind)
 {
 	pthread_mutex_lock(&raft_lock);
@@ -431,6 +445,7 @@ void raft_node_init(const struct raft_node_hooks *h, const char *path)
 	log_path = path;
 	ts_init(&TS);
 	raft_init(&R, ZONE_N1, &io, now_ms32());
+	raft_set_visible(&R, false, now_ms32()); /* until the first heartbeat goes out */
 	load();
 	printf("[raft] cockpit, default leader %d, seed %u, log %d entries, file %s\n",
 	       RAFT_CONF_DEFAULT_LEADER, RAFT_CONF_SEED, RAFT_CONF_LOG_SIZE, log_path);

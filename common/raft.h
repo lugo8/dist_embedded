@@ -119,8 +119,9 @@ struct raft {
 	uint32_t election_ms;    /* current timeout (base + jitter) */
 	uint32_t rng;
 	bool heard_leader_once;
-	bool formed;             /* every node heard since boot (election modes) */
+	bool formed;             /* every node heard since boot, and they can hear us */
 	uint32_t formed_ms;
+	bool visible;            /* this node is on the bus (the Pi: sending its heartbeat) */
 	uint32_t heard_ms[RAFT_NODES + 1];        /* any frame from x, any bus, relayed too */
 	uint32_t heard_bus_ms[RAFT_NODES + 1][2]; /* direct frames from x on bus y */
 	bool heard_any[RAFT_NODES + 1];
@@ -158,6 +159,9 @@ void raft_restore(struct raft *r, uint32_t term, uint8_t voted_for);
 bool raft_restore_entry(struct raft *r, uint16_t index, uint32_t term, uint8_t event);
 
 void raft_heard(struct raft *r, uint8_t zone, int bus, bool relayed, uint32_t now);
+/* whether the others can hear this node yet. True from raft_init; the Pi clears it until
+ * its first heartbeat goes out, so the cluster "forms" at the same moment on every node */
+void raft_set_visible(struct raft *r, bool on, uint32_t now);
 void raft_on_ref(struct raft *r, uint8_t sender, const uint8_t d[MSG_DLC], uint32_t now);
 void raft_on_frame(struct raft *r, uint16_t id, const uint8_t d[MSG_DLC], uint32_t now);
 void raft_tick(struct raft *r, uint32_t now);

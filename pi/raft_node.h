@@ -23,6 +23,7 @@ struct raft_node_hooks {
 
 void raft_node_init(const struct raft_node_hooks *h, const char *log_path);
 void raft_node_start(void);
+void raft_node_hb_sent(void); /* call after each cockpit heartbeat is sent */
 
 /* every accepted frame, both copies; rx_us on pi_local_us()'s clock */
 void raft_node_rx(int bus, uint16_t id, const uint8_t d[MSG_DLC], bool relayed, bool first,

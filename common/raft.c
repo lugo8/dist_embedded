@@ -364,6 +364,7 @@ void raft_init(struct raft *r, uint8_t me, const struct raft_io *io, uint32_t no
 	r->rng = raft_rand_init(RAFT_CONF_SEED, me);
 	r->role = RAFT_BOOT;
 	r->leader = ZONE_NONE;
+	r->visible = true;
 	net_init(&r->net);
 	net_init(&r->tail);
 	r->req_id = (uint8_t)(now * 7 + me); /* differs across reboots: a retry is never mistaken */
@@ -426,6 +427,23 @@ static void boot_decide(struct raft *r)
 
 /* ---------------------------------------------------------------- receive */
 
+/* the cluster forms when we have heard every other node AND they can hear us: otherwise a
+ * node that is listening but not yet sending (the Pi before the wheel stream) would start
+ * its election clock long before the others even know it exists */
+static void check_formed(struct raft *r, uint32_t now)
+{
+	if (r->formed || !r->visible) {
+		return;
+	}
+	for (int x = 1; x <= RAFT_NODES; x++) {
+		if (x != r->me && !r->heard_any[x]) {
+			return;
+		}
+	}
+	r->formed = true;
+	r->formed_ms = now;
+}
+
 void raft_heard(struct raft *r, uint8_t zone, int bus, bool relayed, uint32_t now)
 {
 	if (zone == r->me || zone < ZONE_N1 || zone > ZONE_N3) {
@@ -437,17 +455,14 @@ void raft_heard(struct raft *r, uint8_t zone, int bus, bool relayed, uint32_t no
 	if (!relayed) {
 		r->heard_bus_ms[zone][bus] = now;
 	}
-	if (!r->formed) {
-		bool all = true;
+	check_formed(r, now);
+}
 
-		for (int x = 1; x <= RAFT_NODES; x++) {
-			all &= x == r->me || r->heard_any[x];
-		}
-		if (all) {
-			r->formed = true;
-			r->formed_ms = now;
-		}
-	}
+void raft_set_visible(struct raft *r, bool on, uint32_t now)
+{
+	r->now = now;
+	r->visible = on;
+	check_formed(r, now);
 }
 
 bool raft_ref_is_master(const struct raft *r, uint8_t sender, const uint8_t d[MSG_DLC])

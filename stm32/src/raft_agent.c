@@ -77,6 +77,7 @@ struct print_item {
 	bool replayed;
 	uint16_t index;
 	uint32_t term;
+	struct net_state net; /* the network as of this commit, not as of printing */
 	char text[120];
 };
 K_MSGQ_DEFINE(print_q, sizeof(struct print_item), 16, 4);
@@ -119,9 +120,9 @@ void raft_agent_ts(struct timesync *out)
 static void io_applied(void *ctx, uint16_t index, uint32_t term, uint8_t e, bool replayed)
 {
 	struct print_item p = { .kind = PR_APPLIED, .event = e, .replayed = replayed,
-				.index = index, .term = term };
+				.index = index, .term = term, .net = R.net };
 
-	ARG_UNUSED(ctx);
+	ARG_UNUSED(ctx); /* called by raft with raft_lock held, so R.net is this commit's state */
 	k_msgq_put(&print_q, &p, K_NO_WAIT);
 }
 
@@ -150,11 +151,7 @@ static void print_task(void *p1, void *p2, void *p3)
 			printk("[%lld] commit %u term %u %s%s\n", k_uptime_get(), p.index, p.term, name,
 			       p.replayed ? " (replayed)" : "");
 			if (ev_kind(p.event) != EVK_APP && ev_kind(p.event) != EVK_COCKPIT) {
-				k_mutex_lock(&raft_lock, K_FOREVER);
-				struct net_state s = raft_get_network(&R);
-				k_mutex_unlock(&raft_lock);
-
-				net_state_print(&s, net, sizeof(net));
+				net_state_print(&p.net, net, sizeof(net));
 				printk("  getNetwork: %s\n", net);
 			}
 			continue;

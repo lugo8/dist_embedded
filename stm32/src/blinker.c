@@ -27,7 +27,8 @@ static const struct gpio_dt_spec led_r = GPIO_DT_SPEC_GET(DT_NODELABEL(blink_rig
 
 static atomic_t ctrl_state = ATOMIC_INIT(BLINK_OFF);
 static atomic_t ctrl_slot;
-static atomic_t ctrl_ms; /* k_uptime of the last CTRL, 0 = never */
+static atomic_t ctrl_ms;   /* k_uptime of the last CTRL */
+static atomic_t ctrl_seen; /* 0 until the first CTRL */
 
 /* called from dispatch for every valid CTRL */
 void blinker_ctrl(uint8_t state, uint8_t slot)
@@ -35,7 +36,8 @@ void blinker_ctrl(uint8_t state, uint8_t slot)
 	atomic_set(&ctrl_slot, slot);
 	atomic_val_t old = atomic_set(&ctrl_state, state);
 
-	atomic_set(&ctrl_ms, (atomic_val_t)k_uptime_get_32() | 1);
+	atomic_set(&ctrl_ms, (atomic_val_t)k_uptime_get_32());
+	atomic_set(&ctrl_seen, 1);
 #ifdef ZONE_FRONT
 	/* N2 logs the blinker on/off events (one node, so each change is logged once) */
 	if (old != state) {
@@ -93,8 +95,11 @@ static void blink_task(void *p1, void *p2, void *p3)
 		if (edge - ts_floor_div(edge, HAZARD_HALF_MS * 1000LL) * HAZARD_HALF_MS * 1000LL == 0) {
 			failure = raft_agent_failure_mode();
 		}
-		uint32_t seen = (uint32_t)atomic_get(&ctrl_ms);
-		bool fresh = seen && k_uptime_get_32() - seen < BLINK_STALE_MS;
+		/* stamp first, then the clock, and a signed age: never "49 days old" for a CTRL
+		 * that arrived in this same millisecond (the old `| 1` stamp did exactly that) */
+		uint32_t stamp = (uint32_t)atomic_get(&ctrl_ms);
+		int32_t age = (int32_t)(k_uptime_get_32() - stamp);
+		bool fresh = atomic_get(&ctrl_seen) && age < BLINK_STALE_MS;
 		uint8_t state = fresh ? (uint8_t)atomic_get(&ctrl_state) : BLINK_OFF;
 		uint8_t slot = (uint8_t)atomic_get(&ctrl_slot);
 		bool l, r;
@@ -106,15 +111,15 @@ static void blink_task(void *p1, void *p2, void *p3)
 				turn_slot = slot;
 				turn_anchor = slot_time(edge, slot); /* the 1 Hz starts there, lamps on */
 			}
-		} else {
-			turn = BLINK_OFF;
+		} else if (fresh) {
+			turn = BLINK_OFF; /* only a CTRL saying "not a turn" drops the latch */
 		}
 
 		if (failure) {
 			l = r = phase_on(edge, 0, FAILURE_HALF_MS);
 		} else if (monitor_in_error() || state == BLINK_HAZARD) {
 			l = r = phase_on(edge, 0, HAZARD_HALF_MS);
-		} else if (turn != BLINK_OFF) {
+		} else if (turn != BLINK_OFF && fresh) {
 			bool on = turn_on(edge, turn_anchor);
 
 			l = on && turn == BLINK_LEFT;

@@ -332,6 +332,7 @@ static void *hb_tx_thread(void *arg)
 
 		if (!quiet) {
 			send_both(ID_HB_N1, &seq, d, -1); /* silence is how the others see the test button */
+			raft_node_hb_sent(); /* first one: the cluster can form (random leader mode) */
 		}
 	}
 	return NULL;

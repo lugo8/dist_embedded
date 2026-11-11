@@ -217,6 +217,9 @@ static void power_on(int n, bool restore)
 			      n == ZONE_N1 ? io_persist : NULL, io_log };
 
 	raft_init(&nd->r, (uint8_t)n, &io, now);
+	if (n == ZONE_N1) {
+		raft_set_visible(&nd->r, false, now); /* as pi/raft_node.c: until its first heartbeat */
+	}
 	if (restore) {
 		raft_restore(&nd->r, nd->p_term, nd->p_vote);
 		for (uint16_t i = 1; i <= nd->p_last; i++) {
@@ -329,6 +332,9 @@ static void step(void)
 				d[2] = my_deg(n);
 				transmit((uint8_t)n, ID_HB_N1, d); /* stands in for HB_Nx: liveness + DEG */
 				d[2] = 0;
+				if (n == ZONE_N1) {
+					raft_set_visible(&nd->r, true, now);
+				}
 			}
 			if (raft_ref_info(&nd->r, &term, &mode)) {
 				struct raft_ref m = { term, nd->ref_cycle++, now * 1000, mode, false };
@@ -721,6 +727,29 @@ static void test_random(void)
 	printf("    N%d won the boot election after %d ms (%d REQ_VOTE)\n", who, t, vote_reqs);
 	run(1000);
 	check_logs_agree("random boot");
+	int first = who;
+
+	/* the hardware order: Pi started first, wheel proxy (and so its heartbeat) later. The
+	 * election must not change: same winner, the Pi gets no head start */
+	reset_world();
+	power_on(2, false);
+	power_on(3, false);
+	run(3000);
+	nodes[1].hb = false;
+	power_on(1, false);
+	run(700);
+	CHECK(leaders(&(int){ 0 }) == 0, "elected before the Pi's heartbeat started");
+	nodes[1].hb = true;
+	int late = 0;
+
+	t = await_leader(2000, &late);
+	CHECK(t >= 0 && late == first, "proxy started late: N%d won, want N%d", late, first);
+	CHECK(nodes[late].r.term == 1, "proxy started late: term %lu, want 1",
+	      (unsigned long)nodes[late].r.term);
+	printf("    proxy after the Pi: N%d won after %d ms, term %lu\n", late, t,
+	       (unsigned long)nodes[late].r.term);
+	run(1000);
+	check_logs_agree("random late proxy");
 	if (who != 1) {
 		/* power off the STM32 leader: new leader within 1 s, no failure mode */
 		nodes[who].on = false;
