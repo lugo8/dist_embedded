@@ -1,2 +1,0 @@
-# Load Zephyr board Kconfig descriptions.
-osource "/Users/leesiena/Desktop/18-649/external/zephyr/boards/st/nucleo_f401re/Kconfig"

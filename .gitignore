@@ -62,3 +62,9 @@ dkms.conf
 
 # zone 1 stuff is outdated now
 zone1/*
+build-front/
+build-rear/
+pi/build/
+pi/cockpit
+tests/build/
+raft_cockpit.log
