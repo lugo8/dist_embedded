@@ -7,9 +7,10 @@
  *   - lamps change only on a 50 ms grid of global time;
  *   - hazards are on in the first half of each period counted from global time 0:
  *     2 Hz in the error state, 4 Hz in failure mode;
- *   - a turn signal counts its 1 Hz from the grid point where it started (so it starts
- *     within 50 ms, R2.4); both STM32s get the same CTRL at the same instant, so both
- *     pick the same grid point;
+ *   - a turn signal counts its 1 Hz from the grid point the Pi picked for its start
+ *     (CTRL b7 bits 2-7, 10-60 ms after the button, R2.4). Picking it on each STM32 from
+ *     when CTRL arrived was not enough: a relayed copy arrives ~1 ms later, and just
+ *     before a grid point that is a different grid point, 50 ms out of step;
  *   - failure mode is taken up only on a 250 ms boundary, where the 2 Hz and 4 Hz
  *     patterns both have an edge: every node learns it from the same REF, so every node
  *     switches on the same edge.
@@ -24,11 +25,13 @@ static const struct gpio_dt_spec led_l = GPIO_DT_SPEC_GET(DT_NODELABEL(blink_lef
 static const struct gpio_dt_spec led_r = GPIO_DT_SPEC_GET(DT_NODELABEL(blink_right), gpios);
 
 static atomic_t ctrl_state = ATOMIC_INIT(BLINK_OFF);
+static atomic_t ctrl_slot;
 static atomic_t ctrl_ms; /* k_uptime of the last CTRL, 0 = never */
 
 /* called from dispatch for every valid CTRL */
-void blinker_ctrl(uint8_t state)
+void blinker_ctrl(uint8_t state, uint8_t slot)
 {
+	atomic_set(&ctrl_slot, slot);
 	atomic_val_t old = atomic_set(&ctrl_state, state);
 
 	atomic_set(&ctrl_ms, (atomic_val_t)k_uptime_get_32() | 1);
@@ -47,14 +50,28 @@ void blinker_ctrl(uint8_t state)
 
 static bool phase_on(int64_t g, int64_t anchor, int half_ms)
 {
-	return ((g - anchor) / (half_ms * 1000LL)) % 2 == 0;
+	return g >= anchor && ((g - anchor) / (half_ms * 1000LL)) % 2 == 0;
+}
+
+/* the grid point nearest `edge` (within +/- 1.6 s) whose slot number is `slot` */
+static int64_t slot_time(int64_t edge, uint8_t slot)
+{
+	int64_t k = edge / TURN_GRID_US;
+	int delta = (int)((slot - k) & 0x3F);
+
+	if (delta > 32) {
+		delta -= 64;
+	}
+	return (k + delta) * TURN_GRID_US;
 }
 
 static void blink_task(void *p1, void *p2, void *p3)
 {
 	bool failure = false;
-	uint8_t turn = BLINK_OFF;
+	uint8_t turn = BLINK_OFF, turn_slot = 0;
 	int64_t turn_anchor = 0;
+	int shown = -1;
+	int64_t shown_anchor = -1;
 
 	while (1) {
 		int64_t edge = (global_gettime() / GRID_US + 1) * GRID_US;
@@ -71,12 +88,15 @@ static void blink_task(void *p1, void *p2, void *p3)
 		uint32_t seen = (uint32_t)atomic_get(&ctrl_ms);
 		bool fresh = seen && k_uptime_get_32() - seen < BLINK_STALE_MS;
 		uint8_t state = fresh ? (uint8_t)atomic_get(&ctrl_state) : BLINK_OFF;
+		uint8_t slot = (uint8_t)atomic_get(&ctrl_slot);
 		bool l, r;
 
 		if (state == BLINK_LEFT || state == BLINK_RIGHT) {
-			if (turn != state) {
+			if (turn != state || turn_slot != slot) {
+				/* latch it once: slot numbers repeat every 3.2 s */
 				turn = state;
-				turn_anchor = edge; /* the 1 Hz starts here, lamps on */
+				turn_slot = slot;
+				turn_anchor = slot_time(edge, slot); /* the 1 Hz starts there, lamps on */
 			}
 		} else {
 			turn = BLINK_OFF;
@@ -96,6 +116,20 @@ static void blink_task(void *p1, void *p2, void *p3)
 		}
 		gpio_pin_set_dt(&led_l, l);
 		gpio_pin_set_dt(&led_r, r);
+
+		/* say what the lamps are following, on every change: compare N2's and N3's lines */
+		int mode = failure ? 4 : (monitor_in_error() || state == BLINK_HAZARD) ? 3 : turn;
+
+		if (mode != shown || (turn != BLINK_OFF && turn_anchor != shown_anchor)) {
+			static const char *const name[] = { "off", "LEFT 1 Hz", "RIGHT 1 Hz",
+							    "hazard 2 Hz", "failure 4 Hz" };
+
+			agent_printf("[%lld] blink: %s, global %lld.%06lld, turn start %lld.%06lld",
+				     k_uptime_get(), name[mode], edge / 1000000, edge % 1000000,
+				     turn_anchor / 1000000, turn_anchor % 1000000);
+			shown = mode;
+			shown_anchor = turn_anchor;
+		}
 	}
 }
 

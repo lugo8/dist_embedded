@@ -18,6 +18,7 @@ struct raft_node_hooks {
 	void (*gpio)(int pin, int v);
 	uint8_t (*deg_bits)(void);
 	bool (*sending_hb)(void);
+	bool (*hb_both)(uint8_t zone); /* zone's heartbeat heard directly on both buses lately */
 };
 
 void raft_node_init(const struct raft_node_hooks *h, const char *log_path);

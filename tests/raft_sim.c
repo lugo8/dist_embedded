@@ -38,7 +38,9 @@ struct node {
 	bool link[2];      /* jumper in */
 	bool hb;           /* sending heartbeats (Pi: proxy running, STM32: not test-failed) */
 	uint8_t ref_cycle;
-	struct route_health health;
+	uint32_t hb_direct_ms[4][2]; /* last heartbeat heard directly from x on bus b */
+	uint32_t hb_any_ms[4];       /* last heartbeat from x, any copy */
+	uint32_t hb_gap_max[4];      /* longest heartbeat silence from x (R4.5: 65 ms = failed) */
 	uint32_t any_ms[2];          /* last frame from anyone on bus b (for DEG) */
 	uint32_t direct_ms[4][2];    /* last direct frame from x on bus b (forward-on-detect) */
 	uint32_t seen[64];           /* recent message uids (dedup) */
@@ -126,7 +128,14 @@ static void maybe_relay(int r, const struct msg *m)
 	int to = 1 - m->bus;
 	uint8_t deg = my_deg(r);
 
-	if (m->relayed || route_relay(&nd->r.net, &nd->health, (uint8_t)r, deg, nd->hb, now) != r ||
+	bool hb_both[4] = { false };
+
+	for (int x = 1; x <= 3; x++) {
+		hb_both[x] = x != r && now - nd->hb_direct_ms[x][0] < ROUTE_HB_MS &&
+			     now - nd->hb_direct_ms[x][1] < ROUTE_HB_MS && nd->hb_direct_ms[x][0] &&
+			     nd->hb_direct_ms[x][1];
+	}
+	if (m->relayed || route_relay(&nd->r.net, hb_both, (uint8_t)r, nd->hb) != r ||
 	    (deg & (to ? HEALTH_B_DEG : HEALTH_A_DEG)) || now - nd->direct_ms[m->from][to] < 30) {
 		return;
 	}
@@ -263,6 +272,9 @@ static void deliver(void)
 		nd->any_ms[m->bus] = now;
 		if (!m->relayed) {
 			nd->direct_ms[m->from][m->bus] = now;
+			if (m->id == ID_HB_N1) {
+				nd->hb_direct_ms[m->from][m->bus] = now;
+			}
 		}
 		raft_heard(&nd->r, m->from, m->bus, m->relayed, now);
 		if (seen_before(nd, m->uid)) {
@@ -270,8 +282,10 @@ static void deliver(void)
 		}
 		maybe_relay(m->to, m);
 		if (m->id == ID_HB_N1) {
-			nd->health.deg[m->from] = m->d[2];
-			nd->health.hb_ms[m->from] = now;
+			if (nd->hb_any_ms[m->from] && now - nd->hb_any_ms[m->from] > nd->hb_gap_max[m->from]) {
+				nd->hb_gap_max[m->from] = now - nd->hb_any_ms[m->from];
+			}
+			nd->hb_any_ms[m->from] = now;
 		} else if (raft_base(m->id) == ID_REF_BASE) {
 			raft_on_ref(&nd->r, m->from, m->d, now);
 			nd->ref_from_master += raft_ref_is_master(&nd->r, m->from, m->d);
@@ -373,6 +387,26 @@ static void check_logs_agree(const char *what)
 	}
 }
 
+static void reset_hb_gaps(void)
+{
+	for (int n = 1; n <= 3; n++) {
+		memset(nodes[n].hb_gap_max, 0, sizeof(nodes[n].hb_gap_max));
+	}
+}
+
+/* every live node kept hearing every other live, heartbeating node: no zone went to error */
+static void check_hb_gaps(const char *what)
+{
+	for (int n = 1; n <= 3; n++) {
+		for (int x = 1; x <= 3; x++) {
+			if (x != n && nodes[n].on && nodes[x].on && nodes[x].hb) {
+				CHECK(nodes[n].hb_gap_max[x] < 65, "%s: N%d missed N%d's heartbeat for %u ms",
+				      what, n, x, nodes[n].hb_gap_max[x]);
+			}
+		}
+	}
+}
+
 static int count_committed(int n, uint8_t e)
 {
 	int c = 0;
@@ -442,8 +476,10 @@ static void test_link_faults(void)
 			uint8_t down = EV_LINK_DOWN(n, b), up = EV_LINK_UP(n, b);
 			uint32_t t0 = nodes[1].r.term;
 
+			reset_hb_gaps();
 			nodes[n].link[b] = false;
 			run(1000);
+			check_hb_gaps("one link pulled");
 			CHECK(count_committed(1, down) == 1, "N%d bus %c: %d DOWN entries", n, 'A' + b,
 			      count_committed(1, down));
 			CHECK(!nodes[1].r.net.link_up[n][b], "N%d bus %c not down in graph", n, 'A' + b);
@@ -468,9 +504,11 @@ static void test_two_links(void)
 {
 	printf("checkoff 5: N1 off B and N3 off A, event N2 -> N3 via the Pi's log\n");
 	cold_start_cockpit();
+	reset_hb_gaps();
 	nodes[1].link[1] = false;
 	nodes[3].link[0] = false;
 	run(1500);
+	check_hb_gaps("N1 off B, N3 off A");
 	CHECK(count_committed(3, EV_LINK_DOWN(1, 1)) == 1, "N1_B down not in N3's log");
 	CHECK(count_committed(3, EV_LINK_DOWN(3, 0)) == 1, "N3_A down not in N3's log");
 	uint8_t ev = EV_APP_MAKE(APP_TEST_BTN, 2);
@@ -571,11 +609,14 @@ static void test_relayed_sync(void)
 	uint32_t term = nodes[who].r.term;
 
 	/* leader off bus A, the other STM32 off bus B: they share no bus */
+	run(200); /* let the Pi's boot-time heartbeats settle */
+	reset_hb_gaps();
 	nodes[who].link[0] = false;
 	nodes[other].link[1] = false;
 	int refs0 = nodes[other].ref_from_master, relays0 = nodes[1].relayed_tx;
 
 	run(2000);
+	check_hb_gaps("STM32s on different buses");
 	int refs = nodes[other].ref_from_master - refs0;
 
 	CHECK(refs >= 95, "cut-off N%d took %d REFs from its master in 2 s, want ~100", other, refs);

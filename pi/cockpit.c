@@ -220,12 +220,14 @@ static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static int64_t hb_ms[4][2];  /* [zone][bus] last heartbeat */
 static int64_t any_ms[2];    /* [bus] last frame from any other zone */
 static int64_t direct_ms[4][2]; /* [zone][bus] last frame heard straight from it (relay) */
+static int64_t hb_direct_ms[4][2]; /* [zone][bus] last heartbeat heard straight from it */
 static int in_error = 1;     /* power up in error (R3) */
 static int self_test;        /* wheel test button has failed this zone */
 static int udp_since_error;  /* a valid wheel update arrived since the error began */
 static int64_t udp_ms;       /* last wheel update, 0 = never */
 static int deg[2];
 static int bl_state = BLINK_HAZARD, bl_passed; /* goes out in CTRL b7 (Lab 5) */
+static uint8_t bl_slot;      /* turn start slot (CTRL b7 bits 2-7) */
 static struct sockaddr_in proxy_addr; /* where force goes, learned from the wheel packets */
 static int have_proxy;
 static int zone_err[4];      /* [zone] error state from its heartbeat */
@@ -264,6 +266,13 @@ static void set_blink(int s)
 	}
 	bl_state = s;
 	bl_passed = 0;
+	if (s == BLINK_LEFT || s == BLINK_RIGHT) {
+		/* start on the first 50 ms grid point at least 10 ms ahead: every STM32 has the
+		 * frame by then, relayed or not, and it is still within R2.4's 100 ms */
+		int64_t start = (pi_global_gettime() + 10000) / TURN_GRID_US + 1;
+
+		bl_slot = (uint8_t)(start & 0x3F);
+	}
 }
 
 /* lock held: a turn signal cancels once the wheel has gone past the threshold and come back */
@@ -392,6 +401,20 @@ static uint8_t hook_deg_bits(void)
 	return d;
 }
 
+static bool hook_hb_both(uint8_t zone)
+{
+	int64_t now = now_ms();
+
+	pthread_mutex_lock(&lock);
+	bool on = true;
+
+	for (int b = 0; b < 2; b++) {
+		on &= hb_direct_ms[zone][b] > 0 && now - hb_direct_ms[zone][b] < RELAY_DETECT_MS;
+	}
+	pthread_mutex_unlock(&lock);
+	return on;
+}
+
 static bool hook_sending_hb(void)
 {
 	int64_t now = now_ms();
@@ -427,6 +450,9 @@ static void rx_frame(int bus, const struct can_frame *f, int64_t rx_us)
 	}
 	if (!relayed) {
 		direct_ms[zone][bus] = now;
+		if (is_hb(id)) {
+			hb_direct_ms[zone][bus] = now;
+		}
 	}
 	int other = 1 - bus;
 	bool relay = !relayed && raft_node_relay() == ZONE_N1 && !deg[other] &&
@@ -437,7 +463,8 @@ static void rx_frame(int bus, const struct can_frame *f, int64_t rx_us)
 
 	bool copy = dedup_is_copy(&dd[idx], SEQ(f->data), bus);
 
-	/* Lab 5: the Pi relays too when the network graph makes it the relay (route.h):
+	/* Lab 5: the Pi relays too, as the last resort when neither STM32 is on both buses
+	 * (route.h):
 	 * forward-on-detect, the copy marked FLAG_RELAYED so nobody forwards it again */
 	if (!copy && relay) {
 		uint8_t d[MSG_DLC];
@@ -564,7 +591,7 @@ int main(void)
 
 	struct raft_node_hooks hooks = { .send_both = send_raw_both, .send_bus = send_bus,
 					 .gpio = gpio_put, .deg_bits = hook_deg_bits,
-					 .sending_hb = hook_sending_hb };
+					 .sending_hb = hook_sending_hb, .hb_both = hook_hb_both };
 	const char *log_file = getenv("RAFT_LOG");
 
 	raft_node_init(&hooks, log_file ? log_file : RAFT_LOG_FILE);
@@ -609,6 +636,7 @@ int main(void)
 		}
 		pthread_mutex_lock(&lock);
 		c.blink = (uint8_t)bl_state; /* Lab 5: the turn state rides in CTRL b7 */
+		c.turn_slot = bl_slot;
 		pthread_mutex_unlock(&lock);
 
 		uint8_t d[MSG_DLC] = { 0 };

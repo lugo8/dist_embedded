@@ -1,57 +1,50 @@
 /*
- * Routing from the network state (Lab 5 Part 5).
+ * Routing from the network state (Lab 5 Part 5): who relays between the buses.
  *
- * Lab 3 relaying was forward-on-detect with a hard-coded "who relays" rule (N2 first, N3
- * only when N2 is missing, the Pi never). Lab 5 keeps the per-frame forward-on-detect test
- * (copy a frame from S to the other bus when S's own heartbeat is missing there) and takes
- * the "who relays" decision from the Raft network graph, which every node holds the same:
+ * Lab 3 relaying was forward-on-detect: copy a frame from zone S to the other bus once S
+ * has been missing there for 30 ms. N2 relayed; N3 only when it could not hear N2's
+ * heartbeat on both buses; the Pi never. Exactly one relay, so two relays never put the
+ * same frame on a bus where only they are listening (nobody would ACK: the bus jams).
  *
- *   the relay is the lowest-numbered node that the graph has up on both buses and that is
- *   not reporting either bus degraded in its last heartbeat.
+ * Lab 5 keeps that rule, because it hands over within one missed heartbeat (30 ms, well
+ * inside the 65 ms heartbeat timeout), and adds two things:
+ *   - the Pi as the last resort, when neither STM32 is on both buses: checkoff step 9
+ *     (an STM32 leading, the other cut off) has no other way between the STM32s;
+ *   - the Raft network graph: a node the committed graph has off a bus is not a relay,
+ *     on every node alike, until the graph has it back.
  *
- * Exactly one node relays, so two relays never put the same frame on a bus where only they
- * are listening (the Lab 3 jam), and the Pi now relays too: it is the only node left on both
- * buses in checkoff step 9 (an STM32 leading, the other STM32 cut off by scenario (c)).
- * Health bits come from heartbeats (20 ms), so a fault is routed around before the log
- * commits it (Part 5.2); the graph takes over once it does.
+ *   relay = the first of N2, N3, N1 that the graph has on both buses and whose own
+ *           heartbeat this node has heard directly on both buses in the last 30 ms
+ *           (for itself: that it is sending heartbeats)
+ *
+ * A first try picked the lowest-numbered healthy node from the heartbeats' DEG bits. That
+ * made the Pi the relay by default and took 50-70 ms to hand over when the Pi lost a bus,
+ * past the 65 ms heartbeat timeout: zones dropped into the error state at every link pull.
  */
 #ifndef ROUTE_H
 #define ROUTE_H
 
 #include "raft.h"
 
-#define ROUTE_HEALTH_FRESH_MS 65 /* a heartbeat's DEG bits count this long */
+#define ROUTE_HB_MS 30 /* a relay candidate is missing from a bus after 1.5 heartbeats */
 
-struct route_health {
-	uint8_t deg[RAFT_NODES + 1];      /* HEALTH_A_DEG | HEALTH_B_DEG from the last HB */
-	uint32_t hb_ms[RAFT_NODES + 1];   /* when that HB arrived, 0 = never */
-};
-
-/*
- * The relay. `my_deg` is this node's own degraded bits, `my_hb` whether it is sending
- * heartbeats right now: a node judges itself exactly as the others judge it from its
- * heartbeats, so every node picks the same relay.
- */
-static inline uint8_t route_relay(const struct net_state *net, const struct route_health *h,
-				  uint8_t me, uint8_t my_deg, bool my_hb, uint32_t now)
+/* hb_both[x]: x's heartbeat heard directly on both buses in the last ROUTE_HB_MS */
+static inline uint8_t route_relay(const struct net_state *net, const bool hb_both[4],
+				  uint8_t me, bool my_hb)
 {
-	uint8_t fallback = ZONE_NONE;
+	static const uint8_t order[] = { ZONE_N2, ZONE_N3, ZONE_N1 };
 
-	for (uint8_t x = ZONE_N1; x <= ZONE_N3; x++) {
+	for (unsigned i = 0; i < sizeof(order); i++) {
+		uint8_t x = order[i];
+
 		if (!net->node_up[x] || !net->link_up[x][BUS_A] || !net->link_up[x][BUS_B]) {
 			continue;
 		}
-		bool known = x == me ? my_hb : (h->hb_ms[x] && now - h->hb_ms[x] < ROUTE_HEALTH_FRESH_MS);
-		uint8_t deg = x == me ? my_deg : h->deg[x];
-
-		if (known && !deg) {
+		if (x == me ? my_hb : hb_both[x]) {
 			return x;
 		}
-		if (!known && fallback == ZONE_NONE) {
-			fallback = x; /* no fresh heartbeat (e.g. the Pi with the proxy stopped) */
-		}
 	}
-	return fallback;
+	return ZONE_NONE;
 }
 
 #endif /* ROUTE_H */

@@ -37,7 +37,9 @@ static void pps_task(void *p1, void *p2, void *p3)
 		agent_printf("PPS %lld.%06lld global=%lld us local=%lld us drift %+d ppb "
 			     "(pair %+d ppb) correction since last REF %+d us (slew %+d ppb)%s",
 			     edge / 1000000, edge % 1000000, g, l, t.ppb, t.pair_ppb, t.last_error_us,
-			     t.slew_ppb, t.locked ? "" : " UNSYNCED");
+			     t.slew_ppb,
+			     raft_agent_hb_sync_bits() & SYNC_LOCKED ? (t.locked ? "" : " (master)")
+								     : " UNSYNCED");
 		k_sleep(K_MSEC(PPS_WIDTH_MS));
 		gpio_pin_set_dt(&pps, 0);
 	}

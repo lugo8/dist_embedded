@@ -25,7 +25,6 @@ static const struct gpio_dt_spec sync_led = GPIO_DT_SPEC_GET(USER, sync_gpios);
 
 static struct raft R;
 static K_MUTEX_DEFINE(raft_lock);
-static struct route_health health;
 
 static struct timesync TS;
 static struct k_spinlock ts_lock;
@@ -201,11 +200,7 @@ static void agent_rx(const struct raft_rx *it, uint32_t now)
 
 	raft_heard(&R, zone, it->bus, it->relayed, now);
 	if (is_hb(id)) {
-		if (it->first) {
-			health.deg[zone] = it->f.data[2] & (HEALTH_A_DEG | HEALTH_B_DEG);
-			health.hb_ms[zone] = now;
-		}
-		return;
+		return; /* liveness only (raft_heard above); the relay choice reads monitor.c */
 	}
 	if (raft_base(id) != ID_REF_BASE) {
 		if (it->first) {
@@ -316,7 +311,8 @@ uint8_t raft_agent_hb_sync_bits(void)
 static void agent_tick(uint32_t now)
 {
 	uint8_t e;
-	uint8_t was = R.role;
+	/* the role at the last tick: we can also become leader in agent_rx (a vote reply) */
+	static uint8_t was = RAFT_BOOT;
 
 	while (k_msgq_get(&event_q, &e, K_NO_WAIT) == 0) {
 		raft_report(&R, e);
@@ -338,6 +334,8 @@ static void agent_tick(uint32_t now)
 	bool lead = R.role == ROLE_LEADER;
 	bool sync = lead || locked;
 
+	was = R.role;
+
 	/* failure mode: the committed log, or sooner the master's REF bit (all at once) */
 	bool fail = !R.net.cockpit_ok;
 
@@ -350,8 +348,12 @@ static void agent_tick(uint32_t now)
 	}
 	atomic_set(&failure_mode, fail);
 	atomic_set(&sync_bits, (sync ? SYNC_LOCKED : 0) | (drift ? SYNC_DRIFT : 0));
-	atomic_set(&relay_zone, route_relay(&R.net, &health, MY_ZONE, monitor_deg_bits(),
-					    monitor_sending_hb(), now));
+	bool hb_both[4] = { false };
+
+	for (int x = ZONE_N1; x <= ZONE_N3; x++) {
+		hb_both[x] = x != MY_ZONE && monitor_hb_both(x);
+	}
+	atomic_set(&relay_zone, route_relay(&R.net, hb_both, MY_ZONE, monitor_sending_hb()));
 	gpio_pin_set_dt(&leader_led, lead);
 	gpio_pin_set_dt(&sync_led, sync);
 }

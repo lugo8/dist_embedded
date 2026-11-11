@@ -112,7 +112,10 @@ enum { BUS_A = 0, BUS_B = 1 };
 /*
  * Payloads (byte 0 is always seq/flags):
  *   CTRL   b1-2 steer int16 LE | b3 throttle % | b4 brake % | b5 buttons
- *          | b6 CRC-8 of b1..b5 and b7 | b7 turn state (BLINK_OFF/LEFT/RIGHT/HAZARD, bits 2-7 = 0)
+ *          | b6 CRC-8 of b1..b5 and b7 | b7 bits 0-1 turn state (BLINK_OFF/LEFT/RIGHT/HAZARD),
+ *          bits 2-7 turn start slot: the 50 ms grid point of global time where a LEFT/RIGHT
+ *          signal starts, as (global us / 50000) mod 64. The Pi picks it, so N2 and N3 start
+ *          on the same point however late each hears the frame (a relayed copy is ~1 ms late)
  *   FAULT  b1 failing zone | b2 reason | b3 zone that sent it
  *   HB     b1 zone state | b2 health bits (bus A/B degraded) | b3 sync bits (Lab 5)
  *   BLINK  Lab 3 only: b1 state (off/L/R/hazard) | b2 phase (1 = lamps on)
@@ -134,10 +137,11 @@ struct ctrl {
 	uint8_t throttle;
 	uint8_t brake;
 	uint8_t buttons;
-	uint8_t blink; /* BLINK_OFF/LEFT/RIGHT/HAZARD, after the cockpit's turn-cancel logic */
+	uint8_t blink;     /* BLINK_OFF/LEFT/RIGHT/HAZARD, after the cockpit's turn-cancel logic */
+	uint8_t turn_slot; /* 0..63: where a LEFT/RIGHT signal starts (b7 bits 2-7) */
 };
 
-#define BLINK_RESERVED 0xFC /* CTRL b7 bits that must be 0 */
+#define TURN_GRID_US 50000 /* the turn start slot counts this grid of global time */
 
 /* CRC-8, polynomial 0x07 */
 static inline uint8_t crc8(const uint8_t *p, int n)
@@ -168,7 +172,7 @@ static inline void ctrl_encode(const struct ctrl *c, uint8_t d[MSG_DLC])
 	d[3] = c->throttle;
 	d[4] = c->brake;
 	d[5] = c->buttons;
-	d[7] = c->blink;
+	d[7] = (uint8_t)((c->blink & 0x03) | (c->turn_slot << 2));
 	d[6] = ctrl_crc(d);
 }
 
@@ -179,12 +183,13 @@ static inline bool ctrl_decode(const uint8_t d[MSG_DLC], struct ctrl *c)
 	c->throttle = d[3];
 	c->brake = d[4];
 	c->buttons = d[5];
-	c->blink = d[7];
+	c->blink = d[7] & 0x03;
+	c->turn_slot = d[7] >> 2;
 
 	return d[6] == ctrl_crc(d) &&
 	       c->steer >= STEER_MIN && c->steer <= STEER_MAX &&
 	       c->throttle <= PEDAL_MAX && c->brake <= PEDAL_MAX &&
-	       !(c->buttons & BTN_RESERVED) && !(c->blink & BLINK_RESERVED);
+	       !(c->buttons & BTN_RESERVED);
 }
 
 /* ------------------------------------------------------------------------------------ */

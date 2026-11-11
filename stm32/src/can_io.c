@@ -103,9 +103,9 @@ atomic_t relay_zone; /* written by the raft agent from route_relay() */
 
 /*
  * Forward-on-detect, as in Lab 3: once a zone is missing on one bus while it is still
- * talking on the other, everything it sends is copied across. Lab 5 changes who does it:
- * not "N2, else N3, never the Pi" but the one relay route_relay() picks from the Raft
- * network graph and the heartbeats' DEG bits, the same choice on every node (route.h).
+ * talking on the other, everything it sends is copied across. Who does it comes from
+ * route_relay() (route.h): N2, else N3 when N2 is off a bus, else the Pi, and never a node
+ * the Raft network graph has off a bus. The same choice on every node.
  * A forwarded copy carries FLAG_RELAYED and is never forwarded again, and a receiver
  * that also got the direct copy drops the relayed one as a duplicate.
  */
@@ -171,7 +171,7 @@ static void handle(const struct rx_item *it)
 		monitor_ctrl(ok);
 		if (ok) {
 			actuator_ctrl(&c);
-			blinker_ctrl(c.blink);
+			blinker_ctrl(c.blink, c.turn_slot);
 		}
 	}
 	if (!copy && raft_base(f->id) == ID_REF_BASE) {

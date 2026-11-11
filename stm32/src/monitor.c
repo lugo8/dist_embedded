@@ -18,6 +18,7 @@ static const struct device *const wdt = DEVICE_DT_GET(DT_NODELABEL(iwdg));
 static K_MUTEX_DEFINE(lock);
 static int64_t hb_ms[4][2]; /* [zone][bus] last heartbeat, direct or relayed */
 static int64_t direct_ms[4][2]; /* [zone][bus] last frame of any kind heard straight from it */
+static int64_t hb_direct_ms[4][2]; /* [zone][bus] last heartbeat heard straight from it */
 static int64_t any_ms[2];   /* [bus] last frame from any other zone */
 static int64_t ctrl_ms;     /* last valid CTRL */
 static int64_t bad_cmd_ms;  /* last out-of-range CTRL */
@@ -55,6 +56,13 @@ static void enter_error(int zone, int reason)
 
 	set_err(1);
 	actuator_error();
+	{
+		static const char *const why[] = { "?", "heartbeat lost", "bad CTRL", "test button",
+						   "CTRL lost" };
+
+		agent_printf("[%lld] monitor: ERROR, zone %d %s", k_uptime_get(), zone,
+			     why[reason >= 1 && reason <= 4 ? reason : 0]);
+	}
 	uint8_t d[MSG_DLC] = { 0, zone, reason, MY_ZONE };
 	send_both(ID_FAULT, &fault_seq, d);
 }
@@ -67,6 +75,9 @@ void monitor_rx(int bus, int zone, bool hb, bool relayed)
 	any_ms[bus] = now;
 	if (hb) {
 		hb_ms[zone][bus] = now;
+		if (!relayed) {
+			hb_direct_ms[zone][bus] = now;
+		}
 	}
 	/* relay presence (Lab 5): any direct frame, so a Pi leading with the proxy stopped
 	 * (REF but no heartbeat) is not mistaken for missing and relayed for nothing */
@@ -123,6 +134,17 @@ uint8_t monitor_deg_bits(void)
 	uint8_t d = (deg[0] ? HEALTH_A_DEG : 0) | (deg[1] ? HEALTH_B_DEG : 0);
 	k_mutex_unlock(&lock);
 	return d;
+}
+
+/* route.h: zone's own heartbeat heard directly on both buses lately */
+bool monitor_hb_both(int zone)
+{
+	k_mutex_lock(&lock, K_FOREVER);
+	int64_t now = k_uptime_get();
+	bool on = recent(hb_direct_ms[zone][0], now, RELAY_DETECT_MS) &&
+		  recent(hb_direct_ms[zone][1], now, RELAY_DETECT_MS);
+	k_mutex_unlock(&lock);
+	return on;
 }
 
 bool monitor_hb_on_bus(int zone, int bus)
@@ -198,6 +220,7 @@ static void hb_mon_task(void *p1, void *p2, void *p3)
 		gpio_pin_set_dt(&deg_pin[1], d1);
 		if (leave) {
 			set_err(0);
+			agent_printf("[%lld] monitor: NORMAL", now);
 		}
 		if (enter) {
 			enter_error(!peer ? PEER_ZONE : ZONE_N1,

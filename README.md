@@ -56,7 +56,7 @@ python3 mac_proxy.py --remote 192.168.50.2 --interval-ms 20 ...   # Mac, and set
 
 | ID | Name | From | Period | Payload (byte 0 = seq low nibble + flags) |
 |---|---|---|---|---|
-| 0x010 | CTRL | N1 | every UDP update, 20 ms | b1-2 steer int16 LE (deg), b3 throttle %, b4 brake %, b5 buttons, b6 CRC-8 of b1..b5 and b7, b7 turn state (off/L/R/hazard; Lab 5, replaces BLINK) |
+| 0x010 | CTRL | N1 | every UDP update, 20 ms | b1-2 steer int16 LE (deg), b3 throttle %, b4 brake %, b5 buttons, b6 CRC-8 of b1..b5 and b7, b7 bits 0-1 turn state (off/L/R/hazard; Lab 5, replaces BLINK), bits 2-7 turn start slot (50 ms grid point of global time, mod 64) |
 | 0x020 | FAULT | any | on error entry | b1 failing zone, b2 reason (1 HB lost, 2 bad CTRL, 3 test button), b3 sender |
 | 0x030/031/032 | REF_Nx | Raft leader | 20 ms (`heartbeat_ms`) | b1 term, b2 cycle, b3-6 master time µs u32 LE, b7 mode (bit0 failure mode). Flag 0x20 = time is end of previous REF on this bus |
 | 0x040/041/042 | VOTE_REQ_Nx | candidate | on election | b1 term, b2-3 last log index, b4 last log term |
@@ -86,7 +86,7 @@ Worst-case load per bus: 8.1 % steady, 24.6 % during log catch-up, 34.6 % with a
 - **Log:** one byte per event (30 KB for 30000 entries), terms kept as runs, index implicit. A new leader logs `LEADER_X` (the Raft no-op) so it can commit entries left over from the old term.
 - **Client:** each node's client compares what it sees with the committed graph and reports differences, one at a time, retrying every 50 ms. Followers redirect; the leader drops reports that change nothing, so each fault gives one MEMBER entry. A node reports its own links (link y down = no other node heard directly on y for 250 ms) and node liveness (nothing at all from x for 300 ms). The leader confirms node reports against its own view before logging them.
 - **Cockpit failure mode:** `NODE_1_DOWN` is logged with `COCKPIT_ERROR`, and `NODE_1_UP` with `COCKPIT_OK`. The Pi stopping its heartbeat while still running (proxy off, test button) is the Lab 3 error state at 2 Hz, not failure mode: it is still the leader in step 1. Failure mode is 4 Hz hazards. It starts on the 250 ms boundary after the REF whose mode bit first carries it, so every node switches on the same edge. Losing an STM32 is the Lab 3 error state (2 Hz), with no failure mode (checkoff 8).
-- **Routing (Part 5):** Lab 3's forward-on-detect copy stays, but the relay is now chosen from the network graph (`route.h`): the lowest-numbered node the graph has on both buses that is not reporting a degraded bus in its heartbeat. Exactly one node relays, and the Pi can be it. It has to be in checkoff 9, where the two STM32s share no bus.
+- **Routing (Part 5):** Lab 3's rule stays, because it hands over within one missed heartbeat (30 ms, inside the 65 ms heartbeat timeout): N2 relays; N3 only when it can't hear N2's heartbeat on both buses; and new, the Pi as the last resort when neither STM32 is on both buses (checkoff 9). The Raft network graph removes a node from that list while it has the node off a bus, on every node alike (`route.h`). Exactly one node relays. A first version picked the lowest-numbered healthy node (the Pi) from heartbeat DEG bits; its handover took 50–70 ms, so zones dropped into the error state at every link pull.
 - **Events (EVENT entries):** test-button press (the node pressed), blinker on/off (logged by N2 from CTRL b7), bad CTRL (each STM32 that got it).
 - **Time sync (Part 6):**
   - REF is sent per bus in follow-up form: each copy carries the time the previous REF finished on that bus at the master (STM32: MCP2515 TX-done callback; Pi: the driver's echo of our own frame). Followers pair it with their receive time of that frame on that bus (STM32: stamped in the driver callback; Pi: kernel SocketCAN timestamp).
@@ -95,7 +95,7 @@ Worst-case load per bus: 8.1 % steady, 24.6 % during log catch-up, 34.6 % with a
   - Followers set the Zephyr system clock with `sys_clock_settime(SYS_CLOCK_REALTIME)` (what POSIX `clock_settime()` calls).
   - A new leader keeps running on its synced clock.
   - Relayed REFs are used only when no direct REF has arrived for 60 ms, with 300 µs added for the relay.
-- **Blinkers:** lamps change only on a 50 ms grid of global time. Hazards count from global time 0 (2 Hz error, 4 Hz failure). A turn signal counts 1 Hz from the grid point where it started (≤ 50 ms start latency, R2.4).
+- **Blinkers:** lamps change only on a 50 ms grid of global time. Hazards count from global time 0 (2 Hz error, 4 Hz failure). A turn signal counts 1 Hz from the grid point the Pi picks and sends in CTRL b7 (10–60 ms after the button, R2.4), so N2 and N3 start on the same point even when one of them hears CTRL through the relay a millisecond later.
 - **Pi log file:** written by a low-priority thread within 100 ms of a change (an SD card write can take tens of ms; it never blocks CAN receive). A Pi power cut can lose the last 100 ms of state.
 
 ## Team-defined values
@@ -106,7 +106,7 @@ Worst-case load per bus: 8.1 % steady, 24.6 % during log catch-up, 34.6 % with a
 | throttle, brake | 0..100 % |
 | buttons | bit0 left, bit1 right, bit2 test; bits 3-7 must be 0 |
 | CTRL CRC-8 | poly 0x07 over bytes 1..5 and 7 |
-| CTRL b7 | 0 off, 1 left, 2 right, 3 hazard; bits 2-7 must be 0 |
+| CTRL b7 | bits 0-1: 0 off, 1 left, 2 right, 3 hazard; bits 2-7: turn start slot = (global µs / 50000) mod 64, picked by the Pi 10–60 ms ahead |
 | app events | 0x80 \| kind << 3 \| node; kind 1 test button, 2 left on, 3 right on, 4 hazard on, 5 blinker off, 6 bad CTRL |
 | LEADER_X | 0x05-0x07 |
 

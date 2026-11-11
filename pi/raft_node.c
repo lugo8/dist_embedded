@@ -33,7 +33,6 @@ static const char *log_path;
 
 static pthread_mutex_t raft_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct raft R;
-static struct route_health health;
 static uint8_t seqs[MSG_COUNT];
 
 static pthread_mutex_t ts_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -207,10 +206,7 @@ void raft_node_rx(int bus, uint16_t id, const uint8_t d[MSG_DLC], bool relayed, 
 	pthread_mutex_lock(&raft_lock);
 	raft_heard(&R, zone, bus, relayed, now);
 	if (is_hb(id)) {
-		if (first) {
-			health.deg[zone] = d[2] & (HEALTH_A_DEG | HEALTH_B_DEG);
-			health.hb_ms[zone] = now;
-		}
+		/* liveness only (raft_heard above); the relay choice uses hk.hb_both */
 	} else if (raft_base(id) != ID_REF_BASE) {
 		if (first && is_raft(id)) {
 			raft_on_frame(&R, id, d, now);
@@ -270,6 +266,8 @@ static void *agent_thread(void *arg)
 {
 	int64_t next = pi_local_us();
 
+	uint8_t was = RAFT_BOOT; /* role at the last tick: a vote reply can make us leader in rx */
+
 	(void)arg;
 	for (;;) {
 		next += TICK_MS * 1000;
@@ -277,8 +275,6 @@ static void *agent_thread(void *arg)
 		uint32_t now = now_ms32();
 
 		pthread_mutex_lock(&raft_lock);
-		uint8_t was = R.role;
-
 		raft_tick(&R, now);
 		bool lead = R.role == ROLE_LEADER;
 
@@ -291,7 +287,10 @@ static void *agent_thread(void *arg)
 		bool drift = TS.syncs > 2 * TS_BASELINE_US / 1000 / RAFT_CONF_HEARTBEAT_MS;
 
 		pthread_mutex_unlock(&ts_lock);
-		relay_zone = route_relay(&R.net, &health, ZONE_N1, hk.deg_bits(), hk.sending_hb(), now);
+		bool hb_both[4] = { false, false, hk.hb_both(ZONE_N2), hk.hb_both(ZONE_N3) };
+
+		relay_zone = route_relay(&R.net, hb_both, ZONE_N1, hk.sending_hb());
+		was = R.role;
 		pthread_mutex_unlock(&raft_lock);
 
 		bool sync = lead || locked;

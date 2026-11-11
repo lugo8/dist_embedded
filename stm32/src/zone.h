@@ -101,11 +101,12 @@ bool monitor_self_test(void);
 bool monitor_hb_on_bus(int zone, int bus);
 bool monitor_bus_degraded(int bus);
 bool monitor_sending_hb(void);
+bool monitor_hb_both(int zone);
 uint8_t monitor_deg_bits(void);
 
 /* blinker.c */
 int blinker_init(void);
-void blinker_ctrl(uint8_t state); /* turn state from CTRL b7 */
+void blinker_ctrl(uint8_t state, uint8_t slot); /* turn state + start slot from CTRL b7 */
 
 /* front.c (STEER, FORCE_TX) or rear.c (DRIVE, PID) */
 int actuator_init(void);
