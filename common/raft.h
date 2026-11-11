@@ -37,8 +37,13 @@
 #define RAFT_ELECTION_MIN_MS (RAFT_CONF_MISSED_HEARTBEATS * RAFT_CONF_HEARTBEAT_MS)
 #define RAFT_BOOT_LISTEN_MS  (RAFT_ELECTION_MIN_MS + RAFT_CONF_JITTER_MS + 50)
 #define RAFT_PEER_WINDOW_MS  50  /* "not isolated": heard another node this recently */
-#define RAFT_LEADER_ALONE_MS 100 /* a leader that hears nobody this long steps down */
 #define RAFT_APPEND_IDLE_MS  100 /* empty APPEND period (checkoff step 2) */
+/* a leader that hears nobody this long steps down. A follower with its heartbeat off (test
+ * button) still answers every APPEND, so with the other nodes gone the leader hears it only
+ * once per idle APPEND: this must be well above that period, or it steps down for nothing */
+#define RAFT_LEADER_ALONE_MS (2 * RAFT_APPEND_IDLE_MS + 50)
+_Static_assert(RAFT_LEADER_ALONE_MS >= 2 * RAFT_APPEND_IDLE_MS,
+	       "a self-tested follower is heard only once per idle APPEND");
 #define RAFT_APPEND_GAP_MS   5   /* at most one APPEND with an entry per 5 ms (bus load) */
 #define RAFT_APPEND_RETRY_MS 30  /* resend an unacknowledged entry */
 #define RAFT_FOLLOWER_LIVE_MS 300 /* replicate only to followers heard this recently */

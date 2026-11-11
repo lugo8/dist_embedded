@@ -762,6 +762,38 @@ static void test_random(void)
 		printf("    STM32 leader off: N%d leads after %d ms\n", who, t);
 		check_logs_agree("random stm32 down");
 	}
+	/* checkoff 8d/6: STM32 leading, Pi off, the other STM32 test-fails itself (no heartbeat,
+	 * only its ACKs, one per empty APPEND). The leader must not take that for silence */
+	{
+		reset_world();
+		power_on(2, false);
+		power_on(3, false);
+		power_on(1, false);
+		int w = 0;
+
+		await_leader(2000, &w);
+		run(500);
+		if (w != 1) {
+			int other = w == 2 ? 3 : 2;
+
+			nodes[1].on = false;
+			int nl = 0;
+
+			await_leader(1000, &nl);
+			run(500);
+			uint32_t t0 = nodes[nl].r.term;
+
+			nodes[other == nl ? w : other].hb = false; /* the follower STM32 */
+			run(3000);
+			int now_leader = 0;
+
+			CHECK(leaders(&now_leader) == 1 && now_leader == nl && nodes[nl].r.term == t0,
+			      "follower test-failed: leader changed (N%d term %lu, was N%d term %lu)",
+			      now_leader, (unsigned long)nodes[now_leader].r.term, nl, (unsigned long)t0);
+			printf("    Pi off, follower STM32 self-tested: N%d still leads, term %lu\n", nl,
+			       (unsigned long)nodes[nl].r.term);
+		}
+	}
 }
 
 int main(int argc, char **argv)
